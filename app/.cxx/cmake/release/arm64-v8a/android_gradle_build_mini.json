@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\ndk\\21.0.6113669\\build\\cmake\\platforms.cmake",
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\ndk\\21.0.6113669\\build\\cmake\\android.toolchain.cmake",
+    "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\release\\arm64-v8a\" clean"
+  ],
+  "buildTargetsCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe  -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\release\\arm64-v8a\" {LIST_OF_TARGETS_TO_BUILD}",
+  "libraries": {
+    "native-lib-Release-arm64-v8a": {
+      "artifactName": "native-lib",
+      "buildCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\release\\arm64-v8a\" native-lib",
+      "abi": "arm64-v8a",
+      "output": "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\build\\intermediates\\cmake\\release\\obj\\arm64-v8a\\libnative-lib.so",
+      "runtimeFiles": []
+    },
+    "cpufeatures-Release-arm64-v8a": {
+      "artifactName": "cpufeatures",
+      "buildCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\release\\arm64-v8a\" cpufeatures",
+      "abi": "arm64-v8a",
+      "output": "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\release\\arm64-v8a\\libcpufeatures.a",
+      "runtimeFiles": []
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\ndk\\21.0.6113669\\build\\cmake\\platforms.cmake",
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\ndk\\21.0.6113669\\build\\cmake\\android.toolchain.cmake",
+    "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\debug\\armeabi-v7a\" clean"
+  ],
+  "buildTargetsCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe  -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\debug\\armeabi-v7a\" {LIST_OF_TARGETS_TO_BUILD}",
+  "libraries": {
+    "cpufeatures-Debug-armeabi-v7a": {
+      "artifactName": "cpufeatures",
+      "buildCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\debug\\armeabi-v7a\" cpufeatures",
+      "abi": "armeabi-v7a",
+      "output": "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\debug\\armeabi-v7a\\libcpufeatures.a",
+      "runtimeFiles": []
+    },
+    "native-lib-Debug-armeabi-v7a": {
+      "artifactName": "native-lib",
+      "buildCommand": "C:\\Users\\roblkw\\AppData\\Local\\Android\\Sdk\\cmake\\3.10.2.4988404\\bin\\ninja.exe -C \"C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\.cxx\\cmake\\debug\\armeabi-v7a\" native-lib",
+      "abi": "armeabi-v7a",
+      "output": "C:\\Users\\roblkw\\Downloads\\SpeedyTiltShift2018\\app\\build\\intermediates\\cmake\\debug\\obj\\armeabi-v7a\\libnative-lib.so",
+      "runtimeFiles": []
+    }
+  }
+}

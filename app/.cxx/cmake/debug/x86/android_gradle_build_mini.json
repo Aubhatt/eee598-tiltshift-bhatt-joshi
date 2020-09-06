@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/home/arth/Android/Sdk/ndk/21.0.6113669/build/cmake/platforms.cmake",
+    "/home/arth/Android/Sdk/ndk/21.0.6113669/build/cmake/android.toolchain.cmake",
+    "/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/CMakeLists.txt"
+  ],
+  "cleanCommands": [
+    "/home/arth/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86\" clean"
+  ],
+  "buildTargetsCommand": "/home/arth/Android/Sdk/cmake/3.10.2.4988404/bin/ninja  -C \"/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86\" {LIST_OF_TARGETS_TO_BUILD}",
+  "libraries": {
+    "cpufeatures-Debug-x86": {
+      "artifactName": "cpufeatures",
+      "buildCommand": "/home/arth/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86\" cpufeatures",
+      "abi": "x86",
+      "output": "/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86/libcpufeatures.a",
+      "runtimeFiles": []
+    },
+    "native-lib-Debug-x86": {
+      "artifactName": "native-lib",
+      "buildCommand": "/home/arth/Android/Sdk/cmake/3.10.2.4988404/bin/ninja -C \"/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86\" native-lib",
+      "abi": "x86",
+      "output": "/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/build/intermediates/cmake/debug/obj/x86/libnative-lib.so",
+      "runtimeFiles": []
+    }
+  }
+}
