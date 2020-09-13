@@ -13,54 +13,31 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 
-jfloat* avg_filter(jint k_radius) {
-    int k_height = 2*k_radius + 1;
+jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     int k_width = 2*k_radius + 1;
 
-    // Filling kernel elements
-    auto *kernel = new jfloat[k_height*k_width];
-    for(int j=0; j<k_height; j++) {
-        for(int i=0; i<k_width; i++) {
-            kernel[j*k_width + i] = 1.00/(k_height*k_width);
-        }
-    }
-    return kernel;
-}
-
-jfloat* gaussianGradient_filter(jfloat sigma, jint k_radius, jint y1, jint y2) {
-    int k_height = 2*k_radius + 1;
-    int k_width = 2*k_radius + 1;
-
-    int x, y;
-    jfloat r, s, sigma_grad;
-
+    int x;
+    jfloat r, s = 2.0 * sigma * sigma;
     jfloat sum=0;
 
     // Filling kernel elements
-    auto *kernel = new jfloat[k_height*k_width];
-    for(int j=0; j<k_height; j++) {
-        for(int i=0; i<k_width; i++) {
-            x = i-k_radius;
-            y = j-k_radius;
-            sigma_grad = sigma * abs(y1 - j) / abs(y1 - y2);
-            r = sqrt(x*x + y*y);
-            s = 2.0 * sigma_grad * sigma_grad;
-            kernel[j*k_width + i] = (exp(-(r*r) / s)) / (M_PI * s);
-            sum += kernel[j*k_width + i];
-        }
+    auto *kernel = new jfloat[k_width];
+
+    for(int i=0; i<k_width; i++) {
+        x = i-k_radius;
+        kernel[i] = (exp(-(x*x) / s)) / (M_PI * s);
+        sum += kernel[i];
     }
 
     // Normalize weights (so that the sums add to 1)
-    for(int j=0; j<k_height; j++) {
-        for(int i=0; i<k_width; i++) {
-            kernel[j*k_width + i] /= sum;
-        }
+    for(int i=0; i<k_width; i++) {
+        kernel[i] /= sum;
     }
 
     return kernel;
 }
 
-jfloat* gaussian_filter(jfloat sigma, jint k_radius) {
+jfloat* gaussian_kernel(jfloat sigma, jint k_radius) {
     int k_height = 2*k_radius + 1;
     int k_width = 2*k_radius + 1;
 
@@ -98,7 +75,8 @@ void copy_buffer2D(jint *pixels,
                   jint x_end,
                   jint y_end,
                   jint width,
-                  jint height) {
+                  jint height,
+                  jint k_radius) {
     x_start = fmax(x_start, 0);
     y_start = fmax(y_start, 0);
 
@@ -107,7 +85,7 @@ void copy_buffer2D(jint *pixels,
 
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
-        for (int i=x_start; i<x_end; i++) {
+        for (int i=x_start + k_radius; i<x_end - k_radius; i++) {
             outputPixels[j*width+i] = pixels[j*width + i];
         }
     }
@@ -131,7 +109,7 @@ void apply_filter(jint *pixels,
     y_start = fmax(y_start, k_radius);
 
     x_end = fmin(x_end, width-k_radius);
-    y_end = fmin(y_end, width-k_radius);
+    y_end = fmin(y_end, height-k_radius);
 
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
@@ -164,6 +142,68 @@ void apply_filter(jint *pixels,
     }
 }
 
+void gaussian_filter(jint *pixels,
+                             jint *outputPixels,
+                             jint x_start,
+                             jint y_start,
+                             jint x_end,
+                             jint y_end,
+                             jint width,
+                             jint height,
+                             jint sigma,
+                             jint k_radius) {
+
+    jfloat *kernel;
+
+    // Only apply if sigma is greater than 0.6
+    if(sigma >= 0.6) {
+        kernel = gaussian_kernel(sigma, k_radius);
+        apply_filter(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+    }
+    else {
+        copy_buffer2D(pixels, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+    }
+
+}
+
+void gaussianGradient_filter(jint *pixels,
+        jint *outputPixels,
+        jint x_start,
+        jint y_start,
+        jint x_end,
+        jint y_end,
+        jint width,
+        jint height,
+        jint sigma,
+        jint k_radius,
+        jint climb) { // climb: 1 - no_blur to blur; 0 - blur to no_blur
+
+    jfloat *kernel;
+    jfloat sigma_grad;
+
+    // Apply different kernel for every row in the image to generate a gradient blur
+    for(int j=y_start; j<y_end; j++) {
+
+        // Check if the blur is increasing or decreasing
+        if(climb)
+            sigma_grad = sigma * abs(j - y_start) / abs(y_end - y_start);
+        else
+            sigma_grad = sigma * abs(j - y_end) / abs(y_end - y_start);
+
+        // Only apply if sigma is greater than 0.6
+        if(sigma_grad >= 0.6) {
+            // Create filter
+            kernel = gaussian_kernel(sigma_grad, k_radius);
+
+            // Apply filter
+            apply_filter(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+        }
+        else {
+            copy_buffer2D(pixels, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+        }
+    }
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(JNIEnv *env,
@@ -184,33 +224,29 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
-    LOGI("Sigma_far = %f", sigma_far);
-
-    // Creating filters
-    jint k_radius0 = ceil(2*sigma_far);
-    jint k_radius1 = ceil(2*sigma_far/2);
-    jint k_radius2 = ceil(2*sigma_near/2);
-    jint k_radius3 = ceil(2*sigma_near);
-
-    jfloat *kernel_l0 = gaussian_filter(sigma_far, k_radius0);
-    jfloat *kernel_l1 = gaussianGradient_filter(sigma_far, k_radius1, a1, a0);
-    jfloat *kernel_l2 = gaussianGradient_filter(sigma_near, k_radius2, a2, a3);
-    jfloat *kernel_l3 = gaussian_filter(sigma_near, k_radius3);
-
-    auto *kernel_dummy = new jfloat[1];
-    kernel_dummy[0] = 1;
-
-    // Applying the filters on the input image
-    apply_filter(pixels, kernel_l0, outputPixels,0,0, width, a0, width, height, k_radius0);
-    apply_filter(pixels, kernel_l1, outputPixels,0,a0, width, a1, width, height, k_radius1);
-    copy_buffer2D(pixels, outputPixels, 0, a1, width, a2, width, height);
-    apply_filter(pixels, kernel_l2, outputPixels,0,a2, width, a3, width, height, k_radius2);
-    apply_filter(pixels, kernel_l3, outputPixels,0,a3, width, height, width, height, k_radius3);
+    //LOGI("Sigma_far = %f", sigma_far);
 
 //     std::thread filter (apply_filter, pixels, kernel_l0, outputPixels, 0, 0, width, height, width, height, k_radius0);
 //     filter.join();
 
-     LOGI("Done");
+    // Temporarily hardcoding parameters
+    a0 = height/5.0;
+    a1 = 2 * height/5.0;
+    a2 = 3 * height/5.0;
+    a3 = 4 * height/5.0;
+
+    sigma_far = 5.0;
+    sigma_near = 5.0;
+
+    jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
+
+    gaussian_filter(pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
+    gaussianGradient_filter(pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
+    copy_buffer2D(pixels, outputPixels, 0, a1, width, a2, width, height, k_radius);
+    gaussianGradient_filter(pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1);
+    gaussian_filter(pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius);
+
+    LOGI("Done");
 
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);

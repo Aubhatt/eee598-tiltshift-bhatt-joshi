@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -11,6 +12,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = "SPEEDY_TS";
 
     float a0f, a1f, a2f,a3f, s0f, s1f;
     private ImageView imageView;
@@ -30,15 +33,39 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void javaPress(View view){
+        Log.d("SPEEDY_TS", "Java Implementation called!");
+
+        Long tsLong1 = System.currentTimeMillis()/100;
+
         Bitmap outbmp = SpeedyTiltShift.tiltshift_java(bmp,s0f*sigma_range,s1f*sigma_range,(int)(a0f*bmp.getHeight()),(int)(a1f*bmp.getHeight()),(int)(a2f*bmp.getHeight()),(int)(a3f*bmp.getHeight()));
+
+        Long tsLong2 = System.currentTimeMillis()/100;
+        Log.d(TAG, "Elapsed Time (JAVA) = " + (tsLong2 - tsLong1) + "00 msec" );
+
         imageView.setImageBitmap(outbmp);
     }
     public void cppPress(View view){
+        Log.d("SPEEDY_TS", "C++ Implementation called!");
+
+        Long tsLong1 = System.currentTimeMillis()/100;
+
         Bitmap outbmp = SpeedyTiltShift.tiltshift_cpp(bmp,s0f*sigma_range,s1f*sigma_range,(int)(a0f*bmp.getHeight()),(int)(a1f*bmp.getHeight()),(int)(a2f*bmp.getHeight()),(int)(a3f*bmp.getHeight()));
+
+        Long tsLong2 = System.currentTimeMillis()/100;
+        Log.d(TAG, "Elapsed Time (C++) = " + (tsLong2 - tsLong1) + "00 msec" );
+
         imageView.setImageBitmap(outbmp);
     }
     public void neonPress(View view){
+        Log.d("SPEEDY_TS", "NEON Implementation called!");
+
+        Long tsLong1 = System.currentTimeMillis()/100;
+
         Bitmap outbmp = SpeedyTiltShift.tiltshift_neon(bmp,s0f*sigma_range,s1f*sigma_range,(int)(a0f*bmp.getHeight()),(int)(a1f*bmp.getHeight()),(int)(a2f*bmp.getHeight()),(int)(a3f*bmp.getHeight()));
+
+        Long tsLong2 = System.currentTimeMillis()/100;
+        Log.d(TAG, "Elapsed Time (NEON) = " + (tsLong2 - tsLong1) + "00 msec" );
+
         imageView.setImageBitmap(outbmp);
     }
 
