@@ -13,7 +13,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 
-// TODO: Free memory allocated for kernels and tempPixels
+// TODO: Parallelize using std::for_each and vectors
 
 jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     int k_width = 2*k_radius + 1;
@@ -172,6 +172,8 @@ void apply_filterFast(jint *pixels,
             outputPixels[j*width+i]=color;
         }
     }
+
+    delete[] tempPixels; // Free intermediate pixel storage
 }
 
 void apply_filter(jint *pixels,
@@ -249,6 +251,7 @@ void gaussian_filter(jint *pixels,
             kernel = gaussian_kernel(sigma, k_radius);
             apply_filter(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
         }
+        delete[] kernel; // Free allocated kernel
     }
     else {
         copy_buffer2D(pixels, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
@@ -291,6 +294,7 @@ void gaussianGradient_filter(jint *pixels,
                 kernel = gaussian_kernel(sigma_grad, k_radius);
                 apply_filter(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
             }
+            delete[] kernel; // Free allocated kernel
         }
         else {
             copy_buffer2D(pixels, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
@@ -320,16 +324,21 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     // Selecting kernel radius as per the sigma values
     jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
 
-    // Applying different gaussian filters to different regions of the image
-    gaussian_filter(pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
-    gaussianGradient_filter(pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
-    gaussian_filter(pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
-    gaussianGradient_filter(pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
-    gaussian_filter(pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
+    // Create threads for each strip
+    std::thread strip0 (gaussian_filter, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
+    std::thread strip1 (gaussianGradient_filter, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
+    std::thread strip2 (gaussian_filter, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
+    std::thread strip3 (gaussianGradient_filter, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
+    std::thread strip4 (gaussian_filter, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
 
-//     std::thread filter (apply_filter, pixels, kernel_l0, outputPixels, 0, 0, width, height, width, height, k_radius0);
-//     filter.join();
+    // Wait for the threads to finish
+    strip0.join();
+    strip1.join();
+    strip2.join();
+    strip3.join();
+    strip4.join();
 
+    // Release the pixels
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);
      return 0;
