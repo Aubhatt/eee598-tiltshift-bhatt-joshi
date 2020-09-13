@@ -18,7 +18,7 @@
 jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     int k_width = 2*k_radius + 1;
 
-    int x;
+    jfloat x;
     jfloat r, s = 2.0 * sigma * sigma;
     jfloat sum=0;
 
@@ -70,7 +70,7 @@ jfloat* gaussian_kernel(jfloat sigma, jint k_radius) {
     return kernel;
 }
 
-void copy_buffer2D(jint *pixels,
+void copy_buffer2D(const jint *pixels,
                   jint *outputPixels,
                   jint x_start,
                   jint y_start,
@@ -79,22 +79,22 @@ void copy_buffer2D(jint *pixels,
                   jint width,
                   jint height,
                   jint k_radius) {
-    x_start = fmax(x_start, 0);
-    y_start = fmax(y_start, 0);
+    x_start = fmax(x_start, k_radius);
+    y_start = fmax(y_start, k_radius);
 
-    x_end = fmin(x_end, width);
-    y_end = fmin(y_end, width);
+    x_end = fmin(x_end, width-k_radius);
+    y_end = fmin(y_end, height-k_radius);
 
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
-        for (int i=x_start + k_radius; i<x_end - k_radius; i++) {
+        for (int i=x_start; i<x_end; i++) {
             outputPixels[j*width+i] = pixels[j*width + i];
         }
     }
 }
 
-void apply_filterFast(jint *pixels,
-                  jfloat *kernel,
+void apply_filterFast(const jint *pixels,
+                  const jfloat *kernel,
                   jint *outputPixels,
                   jint x_start,
                   jint y_start,
@@ -103,6 +103,12 @@ void apply_filterFast(jint *pixels,
                   jint width,
                   jint height,
                   jint k_radius) {
+
+    jfloat B, G, R;
+    int x, y;
+    uint32_t b, g, r;
+    uint32_t _B, _G, _R, _A;
+    uint32_t color;
 
     auto* tempPixels = new jint[width*height];
     int k_width = 2*k_radius + 1;
@@ -118,27 +124,26 @@ void apply_filterFast(jint *pixels,
     // First pass
     for (int j=y_start; j<y_end; j++){
         for (int i=x_start; i<x_end; i++) {
-            jfloat B = 0, G = 0, R = 0, A = 0xff;
+            B = 0, G = 0, R = 0, _A = 0xff;
 
             //Applying kernel vertically to pixel
             for(int k_y=0; k_y<k_width; k_y++) {
-                int y = k_y + j - k_radius;
-                int x = i;
+                y = k_y + j - k_radius;
+                x = i;
 
-                uint32_t b = pixels[y*width + x] & 0xFF; //% 0x100;
-                uint32_t g = (pixels[y*width + x] >> 8) & 0xFF;
-                uint32_t r = (pixels[y*width + x] >> 16) & 0xFF;
+                b = pixels[y*width + x] & 0xFF; //% 0x100;
+                g = (pixels[y*width + x] >> 8) & 0xFF;
+                r = (pixels[y*width + x] >> 16) & 0xFF;
 
                 B +=  (b*kernel[k_y]);
                 G +=  (g*kernel[k_y]);
                 R +=  (r*kernel[k_y]);
             }
 
-            uint32_t _B = (uint32_t) B;
-            uint32_t _G = (uint32_t) G;
-            uint32_t _R = (uint32_t) R;
-            uint32_t _A = (uint32_t) A;
-            uint32_t color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+            _B = (uint32_t) B;
+            _G = (uint32_t) G;
+            _R = (uint32_t) R;
+            color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
 
             tempPixels[j*width+i]=color;
         }
@@ -147,27 +152,26 @@ void apply_filterFast(jint *pixels,
     // Second pass
     for (int j=y_start; j<y_end; j++){
         for (int i=x_start; i<x_end; i++) {
-            jfloat B = 0, G = 0, R = 0, A = 0xff;
+            B = 0, G = 0, R = 0, _A = 0xff;
 
             //Applying kernel horizontally to pixel
             for(int k_x=0; k_x<k_width; k_x++) {
-                int x = k_x + i - k_radius;
-                int y = j;
+                x = k_x + i - k_radius;
+                y = j;
 
-                uint32_t b = tempPixels[y*width + x] & 0xFF; //% 0x100;
-                uint32_t g = (tempPixels[y*width + x] >> 8) & 0xFF;
-                uint32_t r = (tempPixels[y*width + x] >> 16) & 0xFF;
+                b = tempPixels[y*width + x] & 0xFF; //% 0x100;
+                g = (tempPixels[y*width + x] >> 8) & 0xFF;
+                r = (tempPixels[y*width + x] >> 16) & 0xFF;
 
                 B +=  (b*kernel[k_x]);
                 G +=  (g*kernel[k_x]);
                 R +=  (r*kernel[k_x]);
             }
 
-            uint32_t _B = (uint32_t) B;
-            uint32_t _G = (uint32_t) G;
-            uint32_t _R = (uint32_t) R;
-            uint32_t _A = (uint32_t) A;
-            uint32_t color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+            _B = (uint32_t) B;
+            _G = (uint32_t) G;
+            _R = (uint32_t) R;
+            color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
 
             outputPixels[j*width+i]=color;
         }
@@ -176,8 +180,8 @@ void apply_filterFast(jint *pixels,
     delete[] tempPixels; // Free intermediate pixel storage
 }
 
-void apply_filter(jint *pixels,
-        jfloat *kernel,
+void apply_filter(const jint *pixels,
+        const jfloat *kernel,
         jint *outputPixels,
         jint x_start,
         jint y_start,
@@ -186,6 +190,13 @@ void apply_filter(jint *pixels,
         jint width,
         jint height,
         jint k_radius) {
+
+    jfloat B, G, R;
+    int x, y;
+    uint32_t b, g, r;
+    uint32_t _B, _G, _R, _A;
+    uint32_t color;
+
 
     int k_height = 2*k_radius + 1;
     int k_width = 2*k_radius + 1;
@@ -199,28 +210,27 @@ void apply_filter(jint *pixels,
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
         for (int i=x_start; i<x_end; i++) {
-            jfloat B = 0, G = 0, R = 0, A = 0xff;
+            B = 0, G = 0, R = 0, _A = 0xff;
 
             //Applying kernel to pixel
             for(int k_y=0; k_y<k_height; k_y++) {
                 for(int k_x=0; k_x<k_width; k_x++) {
-                    int y = k_y + j - k_radius;
-                    int x = k_x + i - k_radius;
+                    y = k_y + j - k_radius;
+                    x = k_x + i - k_radius;
 
-                    uint32_t b = pixels[y*width + x] & 0xFF; //% 0x100;
-                    uint32_t g = (pixels[y*width + x] >> 8) & 0xFF;
-                    uint32_t r = (pixels[y*width + x] >> 16) & 0xFF;
+                    b = pixels[y*width + x] & 0xFF; //% 0x100;
+                    g = (pixels[y*width + x] >> 8) & 0xFF;
+                    r = (pixels[y*width + x] >> 16) & 0xFF;
 
                     B +=  (b*kernel[k_y*k_width + k_x]);
                     G +=  (g*kernel[k_y*k_width + k_x]);
                     R +=  (r*kernel[k_y*k_width + k_x]);
                 }
             }
-            uint32_t _B = (uint32_t) B;
-            uint32_t _G = (uint32_t) G;
-            uint32_t _R = (uint32_t) R;
-            uint32_t _A = (uint32_t) A;
-            uint32_t color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+            _B = (uint32_t) B;
+            _G = (uint32_t) G;
+            _R = (uint32_t) R;
+            color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
 
             outputPixels[j*width+i]=color;
         }
@@ -280,9 +290,9 @@ void gaussianGradient_filter(jint *pixels,
 
         // Check if the blur is increasing or decreasing
         if(climb)
-            sigma_grad = sigma * abs(j - y_start) / abs(y_end - y_start);
+            sigma_grad = sigma * (jfloat)abs(j - y_start) / (jfloat)abs(y_end - y_start);
         else
-            sigma_grad = sigma * abs(j - y_end) / abs(y_end - y_start);
+            sigma_grad = sigma * (jfloat)abs(j - y_end) / (jfloat)abs(y_end - y_start);
 
         // Only apply if sigma is greater than 0.6
         if(sigma_grad >= 0.6) {
