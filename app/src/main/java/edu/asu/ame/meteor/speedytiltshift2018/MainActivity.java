@@ -9,9 +9,11 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "SPEEDY_TS";
     float a0f, a1f, a2f,a3f, s0f, s1f;
     private ImageView imageView;
     private Bitmap bmp;
@@ -34,7 +36,15 @@ public class MainActivity extends AppCompatActivity {
         imageView.setImageBitmap(outbmp);
     }
     public void cppPress(View view){
+        Log.d("SPEEDY_TS", "C++ Implementation called!");
+
+        Long tsLong1 = System.currentTimeMillis()/100;
+
         Bitmap outbmp = SpeedyTiltShift.tiltshift_cpp(bmp,s0f*sigma_range,s1f*sigma_range,(int)(a0f*bmp.getHeight()),(int)(a1f*bmp.getHeight()),(int)(a2f*bmp.getHeight()),(int)(a3f*bmp.getHeight()));
+
+        Long tsLong2 = System.currentTimeMillis()/100;
+        Log.d(TAG, "Elapsed Time (C++) = " + (tsLong2 - tsLong1) + "00 msec" );
+
         imageView.setImageBitmap(outbmp);
     }
     public void neonPress(View view){
