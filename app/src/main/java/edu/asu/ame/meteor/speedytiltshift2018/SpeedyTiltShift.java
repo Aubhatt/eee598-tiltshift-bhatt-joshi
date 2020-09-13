@@ -1,6 +1,7 @@
 package edu.asu.ame.meteor.speedytiltshift2018;
 
 import android.graphics.Bitmap;
+import android.util.Log;
 
 public class SpeedyTiltShift {
     static SpeedyTiltShift Singleton = new SpeedyTiltShift();
@@ -12,6 +13,8 @@ public class SpeedyTiltShift {
 
 
     public static Bitmap tiltshift_java(Bitmap input, float sigma_far, float sigma_near, int a0, int a1, int a2, int a3){
+        Log.d("SPEEDY_TS", "Java Implementation called!");
+
         Bitmap outBmp = Bitmap.createBitmap(input.getWidth(), input.getHeight(), Bitmap.Config.ARGB_8888);
         //cannot write to input Bitmap, since it may be immutable
         //if you try, you may get a java.lang.IllegalStateException
@@ -35,6 +38,8 @@ public class SpeedyTiltShift {
         return outBmp;
     }
     public static Bitmap tiltshift_cpp(Bitmap input, float sigma_far, float sigma_near, int a0, int a1, int a2, int a3){
+        Log.d("SPEEDY_TS", "C++ Implementation called!");
+
         Bitmap outBmp = Bitmap.createBitmap(input.getWidth(), input.getHeight(), Bitmap.Config.ARGB_8888);
         int[] pixels = new int[input.getHeight()*input.getWidth()];
         int[] pixelsOut = new int[input.getHeight()*input.getWidth()];
@@ -46,6 +51,8 @@ public class SpeedyTiltShift {
         return outBmp;
     }
     public static Bitmap tiltshift_neon(Bitmap input, float sigma_far, float sigma_near, int a0, int a1, int a2, int a3){
+        Log.d("SPEEDY_TS", "NEON Implementation called!");
+
         Bitmap outBmp = Bitmap.createBitmap(input.getWidth(), input.getHeight(), Bitmap.Config.ARGB_8888);
         int[] pixels = new int[input.getHeight()*input.getWidth()];
         int[] pixelsOut = new int[input.getHeight()*input.getWidth()];
