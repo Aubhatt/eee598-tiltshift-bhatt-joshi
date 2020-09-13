@@ -13,6 +13,8 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
 
+// TODO: Free memory allocated for kernels and tempPixels
+
 jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     int k_width = 2*k_radius + 1;
 
@@ -91,6 +93,87 @@ void copy_buffer2D(jint *pixels,
     }
 }
 
+void apply_filterFast(jint *pixels,
+                  jfloat *kernel,
+                  jint *outputPixels,
+                  jint x_start,
+                  jint y_start,
+                  jint x_end,
+                  jint y_end,
+                  jint width,
+                  jint height,
+                  jint k_radius) {
+
+    auto* tempPixels = new jint[width*height];
+    int k_width = 2*k_radius + 1;
+
+    x_start = fmax(x_start, k_radius);
+    y_start = fmax(y_start, k_radius);
+
+    x_end = fmin(x_end, width-k_radius);
+    y_end = fmin(y_end, height-k_radius);
+
+    // Convolution of image with kernel a.k.a. applying filter
+
+    // First pass
+    for (int j=y_start; j<y_end; j++){
+        for (int i=x_start; i<x_end; i++) {
+            jfloat B = 0, G = 0, R = 0, A = 0xff;
+
+            //Applying kernel vertically to pixel
+            for(int k_y=0; k_y<k_width; k_y++) {
+                int y = k_y + j - k_radius;
+                int x = i;
+
+                uint32_t b = pixels[y*width + x] & 0xFF; //% 0x100;
+                uint32_t g = (pixels[y*width + x] >> 8) & 0xFF;
+                uint32_t r = (pixels[y*width + x] >> 16) & 0xFF;
+
+                B +=  (b*kernel[k_y]);
+                G +=  (g*kernel[k_y]);
+                R +=  (r*kernel[k_y]);
+            }
+
+            uint32_t _B = (uint32_t) B;
+            uint32_t _G = (uint32_t) G;
+            uint32_t _R = (uint32_t) R;
+            uint32_t _A = (uint32_t) A;
+            uint32_t color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+
+            tempPixels[j*width+i]=color;
+        }
+    }
+
+    // Second pass
+    for (int j=y_start; j<y_end; j++){
+        for (int i=x_start; i<x_end; i++) {
+            jfloat B = 0, G = 0, R = 0, A = 0xff;
+
+            //Applying kernel horizontally to pixel
+            for(int k_x=0; k_x<k_width; k_x++) {
+                int x = k_x + i - k_radius;
+                int y = j;
+
+                uint32_t b = tempPixels[y*width + x] & 0xFF; //% 0x100;
+                uint32_t g = (tempPixels[y*width + x] >> 8) & 0xFF;
+                uint32_t r = (tempPixels[y*width + x] >> 16) & 0xFF;
+
+                B +=  (b*kernel[k_x]);
+                G +=  (g*kernel[k_x]);
+                R +=  (r*kernel[k_x]);
+            }
+
+            uint32_t _B = (uint32_t) B;
+            uint32_t _G = (uint32_t) G;
+            uint32_t _R = (uint32_t) R;
+            uint32_t _A = (uint32_t) A;
+            uint32_t color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+
+            outputPixels[j*width+i]=color;
+        }
+    }
+}
+
 void apply_filter(jint *pixels,
         jfloat *kernel,
         jint *outputPixels,
@@ -151,14 +234,21 @@ void gaussian_filter(jint *pixels,
                              jint width,
                              jint height,
                              jint sigma,
-                             jint k_radius) {
+                             jint k_radius,
+                             jint fast) {
 
     jfloat *kernel;
 
     // Only apply if sigma is greater than 0.6
     if(sigma >= 0.6) {
-        kernel = gaussian_kernel(sigma, k_radius);
-        apply_filter(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+        if(fast) {
+            kernel = gaussian1D_kernel(sigma, k_radius);
+            apply_filterFast(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+        }
+        else {
+            kernel = gaussian_kernel(sigma, k_radius);
+            apply_filter(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+        }
     }
     else {
         copy_buffer2D(pixels, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
@@ -176,7 +266,8 @@ void gaussianGradient_filter(jint *pixels,
         jint height,
         jint sigma,
         jint k_radius,
-        jint climb) { // climb: 1 - no_blur to blur; 0 - blur to no_blur
+        jint climb,
+        jint fast) { // climb: 1 - no_blur to blur; 0 - blur to no_blur
 
     jfloat *kernel;
     jfloat sigma_grad;
@@ -192,11 +283,14 @@ void gaussianGradient_filter(jint *pixels,
 
         // Only apply if sigma is greater than 0.6
         if(sigma_grad >= 0.6) {
-            // Create filter
-            kernel = gaussian_kernel(sigma_grad, k_radius);
-
-            // Apply filter
-            apply_filter(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+            if(fast) {
+                kernel = gaussian1D_kernel(sigma_grad, k_radius);
+                apply_filterFast(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+            }
+            else {
+                kernel = gaussian_kernel(sigma_grad, k_radius);
+                apply_filter(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+            }
         }
         else {
             copy_buffer2D(pixels, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
@@ -217,36 +311,24 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
                                                                                jint a0, jint a1,
                                                                                jint a2, jint a3) {
 
-    /*
-     * a3 a2 a1 a0 [JAVA] [C++] [NEON] sigma_far sigma_near
-     */
-
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
-    //LOGI("Sigma_far = %f", sigma_far);
+    // Selecting convolution algorithm
+    jint fast = 1; // 1: Weight Vector, 0: Weight Matrix
+
+    // Selecting kernel radius as per the sigma values
+    jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
+
+    // Applying different gaussian filters to different regions of the image
+    gaussian_filter(pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
+    gaussianGradient_filter(pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
+    gaussian_filter(pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
+    gaussianGradient_filter(pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
+    gaussian_filter(pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
 
 //     std::thread filter (apply_filter, pixels, kernel_l0, outputPixels, 0, 0, width, height, width, height, k_radius0);
 //     filter.join();
-
-    // Temporarily hardcoding parameters
-    a0 = height/5.0;
-    a1 = 2 * height/5.0;
-    a2 = 3 * height/5.0;
-    a3 = 4 * height/5.0;
-
-    sigma_far = 5.0;
-    sigma_near = 5.0;
-
-    jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
-
-    gaussian_filter(pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
-    gaussianGradient_filter(pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
-    copy_buffer2D(pixels, outputPixels, 0, a1, width, a2, width, height, k_radius);
-    gaussianGradient_filter(pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1);
-    gaussian_filter(pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius);
-
-    LOGI("Done");
 
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);
