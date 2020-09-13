@@ -1,4 +1,0 @@
-C:/Users/roblkw/Downloads/SpeedyTiltShift2018/app/.cxx/cmake/debug/armeabi-v7a/CMakeFiles/cpufeatures.dir
-C:/Users/roblkw/Downloads/SpeedyTiltShift2018/app/.cxx/cmake/debug/armeabi-v7a/CMakeFiles/native-lib.dir
-C:/Users/roblkw/Downloads/SpeedyTiltShift2018/app/.cxx/cmake/debug/armeabi-v7a/CMakeFiles/edit_cache.dir
-C:/Users/roblkw/Downloads/SpeedyTiltShift2018/app/.cxx/cmake/debug/armeabi-v7a/CMakeFiles/rebuild_cache.dir

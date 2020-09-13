@@ -1,6 +1,0 @@
-ninja: Entering directory `C:\Users\roblkw\Downloads\SpeedyTiltShift2018\app\.cxx\cmake\debug\arm64-v8a'
-[1/4] Building C object CMakeFiles/cpufeatures.dir/C_/Users/roblkw/AppData/Local/Android/Sdk/ndk/21.0.6113669/sources/android/cpufeatures/cpu-features.c.o
-[2/4] Linking C static library libcpufeatures.a
-[3/4] Building CXX object CMakeFiles/native-lib.dir/src/main/cpp/native-lib.cpp.o
-clang++: warning: argument unused during compilation: '-mfpu=neon' [-Wunused-command-line-argument]
-[4/4] Linking CXX shared library ..\..\..\..\build\intermediates\cmake\debug\obj\arm64-v8a\libnative-lib.so

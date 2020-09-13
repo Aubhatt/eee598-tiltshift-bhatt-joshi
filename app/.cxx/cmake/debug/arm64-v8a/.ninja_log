@@ -1,5 +1,0 @@
-# ninja log v5
-2	452	620101494	CMakeFiles/cpufeatures.dir/C_/Users/roblkw/AppData/Local/Android/Sdk/ndk/21.0.6113669/sources/android/cpufeatures/cpu-features.c.o	cdbe10ae391ea91e
-455	869	620101495	libcpufeatures.a	9487bd2a1813f6a
-34	1062	620101495	CMakeFiles/native-lib.dir/src/main/cpp/native-lib.cpp.o	328742092d8d5e63
-1063	1288	620101495	../../../../build/intermediates/cmake/debug/obj/arm64-v8a/libnative-lib.so	8c9bac8b517d10f9

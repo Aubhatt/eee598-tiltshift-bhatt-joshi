@@ -1,4 +1,0 @@
-/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86/CMakeFiles/rebuild_cache.dir
-/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86/CMakeFiles/edit_cache.dir
-/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86/CMakeFiles/native-lib.dir
-/home/arth/Briefcase/Study/Mobile_System_Architecture/Dev/Assignment1/SpeedyTiltShift2020/app/.cxx/cmake/debug/x86/CMakeFiles/cpufeatures.dir
