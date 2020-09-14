@@ -73,10 +73,12 @@ void gKernel_create_vector(float sigma, int twiceCeil_r,float *ptr_array)
 
     for(int j=0; j<=twiceCeil_r; j++) {
         ptr_array[j] = ptr_array[j] / sum;
-        // LOGI("ptr_array[%d] = %f", j, ptr_array[j]);
+        //LOGI("ptr_array[%d] = %f", j, ptr_array[j]);
     }
 
 }
+
+
 
 
 extern "C"
@@ -88,29 +90,21 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
     // LOGI("SpeedyTiltShift C++ Called \n");
-//    a0 = height/5.0;
-//    a1 = 2 * height/5.0;
-//    a2 = 3 * height/5.0;
-//    a3 = 4 * height/5.0;
-//
-//    sigma_far = 5.0;
-//    sigma_near = 5.0;
+0
 
 #ifdef WEIGHT_VECTOR
     int ceil_rFar = ceil(2 * sigma_far);
     int ceil_rNear = ceil(2 * sigma_near);
-
+    ceil_rNear = ceil_rFar = fmax(ceil_rFar,ceil_rNear);
 
     float gKernel_far[(2 * ceil_rFar + 1) * (2 * ceil_rFar + 1)];
     float gKernel_near[(2 * ceil_rNear + 1) * (2 * ceil_rNear + 1)];
 
-    float gKernel_far_two[(2 * ceil_rFar + 1) * (2 * ceil_rFar + 1)];
-    float gKernel_near_two[(2 * ceil_rNear + 1) * (2 * ceil_rNear + 1)];
 
     if (sigma_far > 0.6) {
         gKernel_create_vector(sigma_far, 2 * ceil_rFar, gKernel_far);
     } else {
-        LOGI("SIGMA_FAR < 0.6")
+        LOGI("SIGMA_FAR < 0.6");
     }
 
     if (sigma_near > 0.6) {
@@ -119,16 +113,221 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
         LOGI("SIGMA_NEAR < 0.6");
     }
 
-
-    for(int j = ceil_rFar; j < height-ceil_rFar; j++)
+    int A = 0xFF;
+    uint32_t R,G,B;
+    uint32_t color;
+    int r = ceil_rFar;
+    float sum_r,sum_g,sum_b=0;
+    int q[width*(height)];
+    for(int j = ceil_rFar; j < a0; j++)
     {
         for (int i = ceil_rFar; i < width-ceil_rFar; i++)
         {
-            for(int y = 0; y <= 2*ceil_rFar; y++ )
+            for(int y = 0; y <= 2*ceil_rFar; y++)
+            {
+                R = (pixels[(j-r+y)*width+i] >> 16) & 0xFF;
+                G = (pixels[(j-r+y)*width+i] >> 8) & 0xFF;
+                B = (pixels[(j-r+y)*width+i]) & 0xFF;
+
+                sum_b = sum_b + gKernel_far[y] * B;
+                sum_g = sum_g + gKernel_far[y] * G;
+                sum_r = sum_r + gKernel_far[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            q[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+    for(int j = ceil_rFar; j < a0; j++)
+    {
+        for (int i = ceil_rFar; i < width-ceil_rFar; i++)
+        {
+            for(int y = 0; y <= 2*ceil_rFar; y++)
+            {
+                R = (q[j*width+i-r+y] >> 16) & 0xFF;
+                G = (q[j*width+i-r+y] >> 8) & 0xFF;
+                B = q[j*width+i-r+y] & 0xFF;
+
+                sum_b = sum_b + gKernel_far[y] * B;
+                sum_g = sum_g + gKernel_far[y] * G;
+                sum_r = sum_r + gKernel_far[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            outputPixels[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
         }
     }
 
 
+    float sigma_dynamic = 1;
+    float expres = 1;
+    int numerator, denominator;
+    float gKernel_far_two[(2 * ceil_rFar + 1) * (2 * ceil_rFar + 1)];
+    for(int j = a0; j < a1; j++)
+    {
+        numerator = a1 - j;
+        denominator = a1 - a0;
+        expres = (float)numerator/denominator;
+        sigma_dynamic = sigma_far * expres;
+        gKernel_create_vector(sigma_dynamic,2*ceil_rFar,gKernel_far_two);
+        for (int i = ceil_rFar; i < width - ceil_rFar; i++)
+        {
+            for(int y = 0; y <= 2*ceil_rFar; y++)
+            {
+                R = (pixels[(j-r+y)*width+i] >> 16) & 0xFF;
+                G = (pixels[(j-r+y)*width+i] >> 8) & 0xFF;
+                B = (pixels[(j-r+y)*width+i]) & 0xFF;
+
+
+                sum_b = sum_b + gKernel_far_two[y] * B;
+                sum_g = sum_g + gKernel_far_two[y] * G;
+                sum_r = sum_r + gKernel_far_two[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            q[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+    for(int j = a0; j < a1; j++)
+    {
+        for (int i = ceil_rFar; i < width-ceil_rFar; i++)
+        {
+            for(int y = 0; y <= 2*ceil_rFar; y++)
+            {
+                R = (q[j*width+i-r+y] >> 16) & 0xFF;
+                G = (q[j*width+i-r+y] >> 8) & 0xFF;
+                B = q[j*width+i-r+y] & 0xFF;
+
+                sum_b = sum_b + gKernel_far_two[y] * B;
+                sum_g = sum_g + gKernel_far_two[y] * G;
+                sum_r = sum_r + gKernel_far_two[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            outputPixels[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+    for(int j = a1; j < a2; j++)
+    {
+        for (int i = ceil_rFar; i < width - ceil_rFar ;i++)
+        {
+            outputPixels[j*width + i] = pixels[j*width + i];
+        }
+    }
+
+    float gKernel_near_two[(2 * ceil_rNear + 1) * (2 * ceil_rNear + 1)];
+    for(int j=a2; j < a3; j++)
+    {
+        numerator = j - a2;
+        denominator = a3 - a2;
+        expres = (float)numerator/denominator;
+        sigma_dynamic = sigma_near * expres;
+        gKernel_create_vector(sigma_dynamic,2*ceil_rNear,gKernel_near_two);
+        for (int i = ceil_rNear; i < width - ceil_rNear; i++)
+        {
+            for(int y = 0; y <= 2*ceil_rFar; y++)
+            {
+                R = (pixels[(j-r+y)*width+i] >> 16) & 0xFF;
+                G = (pixels[(j-r+y)*width+i] >> 8) & 0xFF;
+                B = (pixels[(j-r+y)*width+i]) & 0xFF;
+
+
+                sum_b = sum_b + gKernel_near_two[y] * B;
+                sum_g = sum_g + gKernel_near_two[y] * G;
+                sum_r = sum_r + gKernel_near_two[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            q[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+    for(int j = a2; j < a3; j++)
+    {
+        for (int i = ceil_rFar; i < width - ceil_rNear; i++)
+        {
+            for (int y = 0; y <= 2 * ceil_rNear; y++)
+            {
+                R = (q[j*width+i-r+y] >> 16) & 0xFF;
+                G = (q[j*width+i-r+y] >> 8) & 0xFF;
+                B = q[j*width+i-r+y] & 0xFF;
+
+                sum_b = sum_b + gKernel_near_two[y] * B;
+                sum_g = sum_g + gKernel_near_two[y] * G;
+                sum_r = sum_r + gKernel_near_two[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            outputPixels[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+
+    for(int j = a3; j < height-ceil_rNear; j++)
+    {
+        for (int i = ceil_rNear; i < width - ceil_rNear; i++)
+        {
+            for(int y = 0; y <= 2*ceil_rNear; y++)
+            {
+                R = (pixels[(j-r+y)*width+i] >> 16) & 0xFF;
+                G = (pixels[(j-r+y)*width+i] >> 8) & 0xFF;
+                B = (pixels[(j-r+y)*width+i]) & 0xFF;
+
+                sum_b = sum_b + gKernel_near[y] * B;
+                sum_g = sum_g + gKernel_near[y] * G;
+                sum_r = sum_r + gKernel_near[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            q[j*width+i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
+
+    for(int j = a3; j < height-ceil_rNear; j++)
+    {
+        for (int i = ceil_rNear; i < width - ceil_rNear; i++)
+        {
+            for (int y = 0; y <= 2 * ceil_rFar; y++) {
+                R = (q[j*width+i-r+y] >> 16) & 0xFF;
+                G = (q[j*width+i-r+y] >> 8) & 0xFF;
+                B = q[j*width+i-r+y] & 0xFF;
+
+                sum_b = sum_b + gKernel_near[y] * B;
+                sum_g = sum_g + gKernel_near[y] * G;
+                sum_r = sum_r + gKernel_near[y] * R;
+            }
+            B = (uint32_t) sum_b;
+            G = (uint32_t) sum_g;
+            R = (uint32_t) sum_r;
+            color = (((A & 0xFF) << 24) | ((R & 0xFF) << 16) | ((G & 0xFF) << 8) | (B & 0xFF));
+            outputPixels[j * width + i] = color;
+            sum_b = sum_g = sum_r = 0;
+        }
+    }
 #endif
 
 
@@ -327,4 +526,3 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);
     return 0;
 }
-
