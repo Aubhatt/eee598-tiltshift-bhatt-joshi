@@ -79,11 +79,11 @@ void copy_buffer2D(const jint *pixels,
                   jint width,
                   jint height,
                   jint k_radius) {
-    x_start = fmax(x_start, k_radius);
-    y_start = fmax(y_start, k_radius);
+    x_start = fmax(x_start, 0);
+    y_start = fmax(y_start, 0);
 
-    x_end = fmin(x_end, width-k_radius);
-    y_end = fmin(y_end, height-k_radius);
+    x_end = fmin(x_end, width);
+    y_end = fmin(y_end, height);
 
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
@@ -113,11 +113,11 @@ void apply_filterFast(const jint *pixels,
     auto* tempPixels = new jint[width*height];
     int k_width = 2*k_radius + 1;
 
-    x_start = fmax(x_start, k_radius);
-    y_start = fmax(y_start, k_radius);
+    x_start = fmax(x_start, 0);
+    y_start = fmax(y_start, 0);
 
-    x_end = fmin(x_end, width-k_radius);
-    y_end = fmin(y_end, height-k_radius);
+    x_end = fmin(x_end, width);
+    y_end = fmin(y_end, height);
 
     // Convolution of image with kernel a.k.a. applying filter
 
@@ -131,13 +131,15 @@ void apply_filterFast(const jint *pixels,
                 y = k_y + j - k_radius;
                 x = i;
 
-                b = pixels[y*width + x] & 0xFF; //% 0x100;
-                g = (pixels[y*width + x] >> 8) & 0xFF;
-                r = (pixels[y*width + x] >> 16) & 0xFF;
+                if( (y >= 0) && (y < height) ) {
+                    b = pixels[y * width + x] & 0xFF; //% 0x100;
+                    g = (pixels[y * width + x] >> 8) & 0xFF;
+                    r = (pixels[y * width + x] >> 16) & 0xFF;
 
-                B +=  (b*kernel[k_y]);
-                G +=  (g*kernel[k_y]);
-                R +=  (r*kernel[k_y]);
+                    B += (b * kernel[k_y]);
+                    G += (g * kernel[k_y]);
+                    R += (r * kernel[k_y]);
+                }
             }
 
             _B = (uint32_t) B;
@@ -159,13 +161,15 @@ void apply_filterFast(const jint *pixels,
                 x = k_x + i - k_radius;
                 y = j;
 
-                b = tempPixels[y*width + x] & 0xFF; //% 0x100;
-                g = (tempPixels[y*width + x] >> 8) & 0xFF;
-                r = (tempPixels[y*width + x] >> 16) & 0xFF;
+                if( (x >= 0) && (x < width) ) {
+                    b = tempPixels[y * width + x] & 0xFF; //% 0x100;
+                    g = (tempPixels[y * width + x] >> 8) & 0xFF;
+                    r = (tempPixels[y * width + x] >> 16) & 0xFF;
 
-                B +=  (b*kernel[k_x]);
-                G +=  (g*kernel[k_x]);
-                R +=  (r*kernel[k_x]);
+                    B += (b * kernel[k_x]);
+                    G += (g * kernel[k_x]);
+                    R += (r * kernel[k_x]);
+                }
             }
 
             _B = (uint32_t) B;
@@ -201,11 +205,11 @@ void apply_filter(const jint *pixels,
     int k_height = 2*k_radius + 1;
     int k_width = 2*k_radius + 1;
 
-    x_start = fmax(x_start, k_radius);
-    y_start = fmax(y_start, k_radius);
+    x_start = fmax(x_start, 0);
+    y_start = fmax(y_start, 0);
 
-    x_end = fmin(x_end, width-k_radius);
-    y_end = fmin(y_end, height-k_radius);
+    x_end = fmin(x_end, width);
+    y_end = fmin(y_end, height);
 
     // Convolution of image with kernel a.k.a. applying filter
     for (int j=y_start; j<y_end; j++){
@@ -218,13 +222,15 @@ void apply_filter(const jint *pixels,
                     y = k_y + j - k_radius;
                     x = k_x + i - k_radius;
 
-                    b = pixels[y*width + x] & 0xFF; //% 0x100;
-                    g = (pixels[y*width + x] >> 8) & 0xFF;
-                    r = (pixels[y*width + x] >> 16) & 0xFF;
+                    if( (y >= 0) && (y < height) && (x >= 0) && (x < width) ) {
+                        b = pixels[y*width + x] & 0xFF; //% 0x100;
+                        g = (pixels[y*width + x] >> 8) & 0xFF;
+                        r = (pixels[y*width + x] >> 16) & 0xFF;
 
-                    B +=  (b*kernel[k_y*k_width + k_x]);
-                    G +=  (g*kernel[k_y*k_width + k_x]);
-                    R +=  (r*kernel[k_y*k_width + k_x]);
+                        B +=  (b*kernel[k_y*k_width + k_x]);
+                        G +=  (g*kernel[k_y*k_width + k_x]);
+                        R +=  (r*kernel[k_y*k_width + k_x]);
+                    }
                 }
             }
             _B = (uint32_t) B;
