@@ -1,6 +1,7 @@
 package edu.asu.ame.meteor.speedytiltshift2018;
 
 import android.graphics.Bitmap;
+import android.util.Log;
 
 public class SpeedyTiltShift {
     static SpeedyTiltShift Singleton = new SpeedyTiltShift();
