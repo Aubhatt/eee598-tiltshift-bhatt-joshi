@@ -8,6 +8,7 @@
 
 #define TAG "SPEEDY_TS"
 
+// ******************** USE THESE MACROS FOR DEBUGGING *******************
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
@@ -15,6 +16,16 @@
 
 // TODO: Parallelize using std::for_each and vectors
 
+/*
+ * Function gaussian1D_kernel
+ * Prototype: jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius)
+ * Description: This function generates a kernel vector(1-D), according to a gaussian distribution.
+ * Parameters:
+ *      + sigma(type: jfloat) - Standard deviation of the gaussian distribution used for creating
+ *                              the kernel vector.
+ *      + radius(type: jint) - Used to calculate the kernel size = 2*k_radius+1
+ * Return Value: (jfloat*) kernel
+ */
 jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     int k_width = 2*k_radius + 1;
 
@@ -39,6 +50,16 @@ jfloat* gaussian1D_kernel(jfloat sigma, jint k_radius) {
     return kernel;
 }
 
+/*
+ * Function gaussian2D_kernel
+ * Prototype: jfloat* gaussian2D_kernel(jfloat sigma, jint k_radius)
+ * Description: This function generates a kernel matrix(2-D), according to a gaussian distribution.
+ * Parameters:
+ *      + sigma(type: jfloat) - Standard deviation of the gaussian distribution used for creating
+ *                              the kernel vector.
+ *      + radius(type: jint) - Used to calculate the kernel dimensions = (2*k_radius+1,2*k_radius+1)
+ * Return Value: (jfloat*) kernel
+ */
 jfloat* gaussian_kernel(jfloat sigma, jint k_radius) {
     int k_height = 2*k_radius + 1;
     int k_width = 2*k_radius + 1;
@@ -70,6 +91,30 @@ jfloat* gaussian_kernel(jfloat sigma, jint k_radius) {
     return kernel;
 }
 
+/*
+ * Function copy_buffer2D
+ * Prototype: void copy_buffer2D(const jint *pixels,
+                  jint *outputPixels,
+                  jint x_start,
+                  jint y_start,
+                  jint x_end,
+                  jint y_end,
+                  jint width,
+                  jint height,
+                  jint k_radius)
+ * Description: Copies values from pixels to outputPixels in the given range
+ * Parameters:
+ *      + pixels(type: const jint*) - source matrix in row-major form
+ *      + outputPixels(type: jint*) - destination matrix in row-major form
+ *      + x_start(type: jint) - range start x-coord
+ *      + y_start(type: jint) - range start y-coord
+ *      + x_end(type: jint) - range end x-coord
+ *      + y_end(type: jint) - range end y-coord
+ *      + width(type: jint) - width of source matrix
+ *      + height(type: jint) - height of source matrix
+ *      + k_radius(type: jint) - dummy
+ * Return Value: (void)
+ */
 void copy_buffer2D(const jint *pixels,
                   jint *outputPixels,
                   jint x_start,
@@ -93,6 +138,32 @@ void copy_buffer2D(const jint *pixels,
     }
 }
 
+/*
+ * Function apply_filterFast
+ * Prototype: void apply_filterFast(const jint *pixels,
+                  const jfloat *kernel,
+                  jint *outputPixels,
+                  jint x_start,
+                  jint y_start,
+                  jint x_end,
+                  jint y_end,
+                  jint width,
+                  jint height,
+                  jint k_radius)
+ * Description: Performs convolution between kernel and input matrix in weighted vector fashion.
+ * Parameters:
+ *      + pixels(type: const jint*) - source matrix in row-major form
+ *      + kernel(type: const jfloat*) - vector(1-D) kernel
+ *      + outputPixels(type: jint*) - destination matrix in row-major form
+ *      + x_start(type: jint) - range start x-coord
+ *      + y_start(type: jint) - range start y-coord
+ *      + x_end(type: jint) - range end x-coord
+ *      + y_end(type: jint) - range end y-coord
+ *      + width(type: jint) - width of source matrix
+ *      + height(type: jint) - height of source matrix
+ *      + k_radius(type: jint) - radius of kernel
+ * Return Value: (void)
+ */
 void apply_filterFast(const jint *pixels,
                   const jfloat *kernel,
                   jint *outputPixels,
@@ -136,12 +207,15 @@ void apply_filterFast(const jint *pixels,
                     g = (pixels[y * width + x] >> 8) & 0xFF;
                     r = (pixels[y * width + x] >> 16) & 0xFF;
 
+                    // Notice that B, G and R are float and not int
+                    // to avoid accumulating rounding error
                     B += (b * kernel[k_y]);
                     G += (g * kernel[k_y]);
                     R += (r * kernel[k_y]);
                 }
             }
 
+            // Now we convert the accumulated float values to int values
             _B = (uint32_t) B;
             _G = (uint32_t) G;
             _R = (uint32_t) R;
@@ -166,12 +240,15 @@ void apply_filterFast(const jint *pixels,
                     g = (tempPixels[y * width + x] >> 8) & 0xFF;
                     r = (tempPixels[y * width + x] >> 16) & 0xFF;
 
+                    // Notice that B, G and R are float and not int
+                    // to avoid accumulating rounding error
                     B += (b * kernel[k_x]);
                     G += (g * kernel[k_x]);
                     R += (r * kernel[k_x]);
                 }
             }
 
+            // Now we convert the accumulated float values to int values
             _B = (uint32_t) B;
             _G = (uint32_t) G;
             _R = (uint32_t) R;
@@ -184,6 +261,32 @@ void apply_filterFast(const jint *pixels,
     delete[] tempPixels; // Free intermediate pixel storage
 }
 
+/*
+ * Function apply_filter
+ * Prototype: void apply_filter(const jint *pixels,
+                  const jfloat *kernel,
+                  jint *outputPixels,
+                  jint x_start,
+                  jint y_start,
+                  jint x_end,
+                  jint y_end,
+                  jint width,
+                  jint height,
+                  jint k_radius)
+ * Description: Performs convolution between kernel and input matrix in weighted matrix fashion.
+ * Parameters:
+ *      + pixels(type: const jint*) - source matrix in row-major form
+ *      + kernel(type: const jfloat*) - kernel matrix in row-major form
+ *      + outputPixels(type: jint*) - destination matrix in row-major form
+ *      + x_start(type: jint) - range start x-coord
+ *      + y_start(type: jint) - range start y-coord
+ *      + x_end(type: jint) - range end x-coord
+ *      + y_end(type: jint) - range end y-coord
+ *      + width(type: jint) - width of source matrix
+ *      + height(type: jint) - height of source matrix
+ *      + k_radius(type: jint) - radius of kernel
+ * Return Value: (void)
+ */
 void apply_filter(const jint *pixels,
         const jfloat *kernel,
         jint *outputPixels,
@@ -243,6 +346,39 @@ void apply_filter(const jint *pixels,
     }
 }
 
+/*
+ * Function gaussian_filter
+ * Prototype: void gaussian_filter(jint *pixels,
+                             jint *outputPixels,
+                             jint x_start,
+                             jint y_start,
+                             jint x_end,
+                             jint y_end,
+                             jint width,
+                             jint height,
+                             jint sigma,
+                             jint k_radius,
+                             jint fast)
+ * Description: This is an intermediate function. It performs the following functionalities:
+ *      - Check if sigma is big enough to apply gaussian filter
+ *      - Selects between weighted matrix and weighted vector method to perform convolution
+ *      - Creates kernel and applies it over input matrix
+ * Parameters:
+ *      + pixels(type: const jint*) - source matrix in row-major form
+ *      + outputPixels(type: jint*) - destination matrix in row-major form
+ *      + x_start(type: jint) - range start x-coord
+ *      + y_start(type: jint) - range start y-coord
+ *      + x_end(type: jint) - range end x-coord
+ *      + y_end(type: jint) - range end y-coord
+ *      + width(type: jint) - width of source matrix
+ *      + height(type: jint) - height of source matrix
+ *      + sigma(type: jfloat) - Standard deviation of the gaussian distribution used for creating
+ *                              the kernel vector.
+ *      + k_radius(type: jint) - radius of kernel
+ *      + fast(type: jint) - set it to 1 for weighted vector method,
+ *                               or to 0 for weighted matrix method.
+ * Return Value: (void)
+ */
 void gaussian_filter(jint *pixels,
                              jint *outputPixels,
                              jint x_start,
@@ -275,6 +411,40 @@ void gaussian_filter(jint *pixels,
 
 }
 
+/*
+ * Function gaussianGradient_filter
+ * Prototype: void gaussianGradient_filter(jint *pixels,
+                             jint *outputPixels,
+                             jint x_start,
+                             jint y_start,
+                             jint x_end,
+                             jint y_end,
+                             jint width,
+                             jint height,
+                             jint sigma,
+                             jint k_radius,
+                             jint fast)
+ * Description: This is an intermediate function. It performs the following functionalities:
+ *      - Apply changing kernel to each row of input matrix
+ *      - Check if sigma is big enough to apply gaussian filter
+ *      - Selects between weighted matrix and weighted vector method to perform convolution
+ *      - Creates kernel and applies it over input matrix
+ * Parameters:
+ *      + pixels(type: const jint*) - source matrix in row-major form
+ *      + outputPixels(type: jint*) - destination matrix in row-major form
+ *      + x_start(type: jint) - range start x-coord
+ *      + y_start(type: jint) - range start y-coord
+ *      + x_end(type: jint) - range end x-coord
+ *      + y_end(type: jint) - range end y-coord
+ *      + width(type: jint) - width of source matrix
+ *      + height(type: jint) - height of source matrix
+ *      + sigma(type: jfloat) - Standard deviation of the gaussian distribution used for creating
+ *                              the kernel vector.
+ *      + k_radius(type: jint) - radius of kernel
+ *      + fast(type: jint) - set it to 1 for weighted vector method,
+ *                               or to 0 for weighted matrix method.
+ * Return Value: (void)
+ */
 void gaussianGradient_filter(jint *pixels,
         jint *outputPixels,
         jint x_start,
