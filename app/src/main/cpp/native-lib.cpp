@@ -509,6 +509,7 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
     // Fixing image division and sigma values for profiling
+    jint profile = 1; // 1: Fix parameters for profiling; 0: Parameters are set from GUI
     a0 = height/5;
     a1 = 2*height/5;
     a2 = 3*height/5;
