@@ -330,12 +330,16 @@ void apply_filter(const jint *pixels,
                         g = (pixels[y*width + x] >> 8) & 0xFF;
                         r = (pixels[y*width + x] >> 16) & 0xFF;
 
+                        // Notice that B, G and R are float and not int
+                        // to avoid accumulating rounding error
                         B +=  (b*kernel[k_y*k_width + k_x]);
                         G +=  (g*kernel[k_y*k_width + k_x]);
                         R +=  (r*kernel[k_y*k_width + k_x]);
                     }
                 }
             }
+
+            // Now we convert the accumulated float values to int values
             _B = (uint32_t) B;
             _G = (uint32_t) G;
             _R = (uint32_t) R;
@@ -504,25 +508,46 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
+    // Fixing image division and sigma values for profiling
+    a0 = height/5;
+    a1 = 2*height/5;
+    a2 = 3*height/5;
+    a3 = 4*height/5;
+
+    sigma_far = 5.0;
+    sigma_near = sigma_far;
+
     // Selecting convolution algorithm
-    jint fast = 1; // 1: Weight Vector, 0: Weight Matrix
+    jint fast = 0; // 1: Weight Vector, 0: Weight Matrix
+
+    // Selecting between single or multiple threads
+    jint thread = 0; // 1: Multiple Threads, 0" Single Thread
 
     // Selecting kernel radius as per the sigma values
     jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
 
-    // Create threads for each strip
-    std::thread strip0 (gaussian_filter, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
-    std::thread strip1 (gaussianGradient_filter, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
-    std::thread strip2 (gaussian_filter, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
-    std::thread strip3 (gaussianGradient_filter, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
-    std::thread strip4 (gaussian_filter, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
+    if(thread) {
+        // Create threads for each strip
+        std::thread strip0 (gaussian_filter, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
+        std::thread strip1 (gaussianGradient_filter, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
+        std::thread strip2 (gaussian_filter, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
+        std::thread strip3 (gaussianGradient_filter, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
+        std::thread strip4 (gaussian_filter, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
 
-    // Wait for the threads to finish
-    strip0.join();
-    strip1.join();
-    strip2.join();
-    strip3.join();
-    strip4.join();
+        // Wait for the threads to finish
+        strip0.join();
+        strip1.join();
+        strip2.join();
+        strip3.join();
+        strip4.join();
+    }
+    else {
+        gaussian_filter(pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
+        gaussianGradient_filter(pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
+        gaussian_filter(pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
+        gaussianGradient_filter(pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
+        gaussian_filter(pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
+    }
 
     // Release the pixels
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
