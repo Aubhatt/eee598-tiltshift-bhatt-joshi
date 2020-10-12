@@ -387,7 +387,7 @@ void gaussian_filter(jint *pixels,
                              jint y_end,
                              jint width,
                              jint height,
-                             jint sigma,
+                             jfloat sigma,
                              jint k_radius,
                              jint fast) {
 
@@ -453,7 +453,7 @@ void gaussianGradient_filter(jint *pixels,
         jint y_end,
         jint width,
         jint height,
-        jint sigma,
+        jfloat sigma,
         jint k_radius,
         jint climb,
         jint fast) { // climb: 1 - no_blur to blur; 0 - blur to no_blur

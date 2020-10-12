@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void javaPress(View view){
-        Log.d("SPEEDY_TS", "Java Implementation called!");
+        Log.d(TAG, "Java Implementation called!");
 
         Long tsLong1 = System.currentTimeMillis()/100;
 
@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
         imageView.setImageBitmap(outbmp);
     }
     public void cppPress(View view){
-        Log.d("SPEEDY_TS", "C++ Implementation called!");
+        Log.d(TAG, "C++ Implementation called!");
 
         Long tsLong1 = System.currentTimeMillis()/100;
 
@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         imageView.setImageBitmap(outbmp);
     }
     public void neonPress(View view){
-        Log.d("SPEEDY_TS", "NEON Implementation called!");
+        Log.d(TAG, "NEON Implementation called!");
 
         Long tsLong1 = System.currentTimeMillis()/100;
 
