@@ -5,6 +5,7 @@
 #include <thread>
 #include <cmath>
 #include <algorithm>
+#include <arm_neon.h>
 
 #define TAG "SPEEDY_TS"
 
@@ -530,6 +531,106 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
      return 0;
 }
 
+// ---------------------------------------- ARM Neon -----------------------------------------------
+
+void apply_filterFast_Neon(const jint *pixels,
+                      const jfloat *kernel,
+                      jint *outputPixels,
+                      jint x_start,
+                      jint y_start,
+                      jint x_end,
+                      jint y_end,
+                      jint width,
+                      jint height,
+                      jint k_radius) {
+    uint8_t *arrayInPtr = (uint8_t *)pixels;
+    uint8_t *arrayOutPtr = (uint8_t *)outputPixels;
+
+    uint8_t *arrayInPtr_cur;
+    uint8_t *arrayOutPtr_cur;
+
+    uint8x16x4_t neonInPtr_cur, neonOutPtr_cur;
+    uint8x16_t Bvector, Gvector, Rvector, Avector;
+    uint8x8_t Blow, Glow, Rlow;
+    uint16x8_t Blow16, Glow16, Rlow16;
+    uint8x8_t Bhigh, Ghigh, Rhigh;
+    uint16x8_t Bhigh16, Ghigh16, Rhigh16;
+
+    for (int j=y_start;j<y_end;j++){
+        for (int i=x_start;i<x_end;i++) {
+
+            arrayInPtr_cur = &(arrayInPtr[j*width*4 + i*4]);
+            arrayOutPtr_cur = &(arrayOutPtr[j*width*4 + i*4]);
+
+            // Get the pixel values in ARM format
+            neonInPtr_cur = vld4q_u8(arrayInPtr_cur);
+
+            // Separate all color channels
+            Bvector = neonInPtr_cur.val[0];
+            Gvector = neonInPtr_cur.val[1];
+            Rvector = neonInPtr_cur.val[2];
+            Avector = neonInPtr_cur.val[3];
+
+            // Get the lower 8 pixels from color channel to prevent mul from going out-of-bound
+            Blow = vget_low_u8(Bvector);
+            Glow = vget_low_u8(Gvector);
+            Rlow = vget_low_u8(Rvector);
+
+            Blow16 = vmovl_u8(Blow);
+            Glow16 = vmovl_u8(Glow);
+            Rlow16 = vmovl_u8(Rlow);
+
+            // Get the higher 8 pixels from color channel to prevent mul from going out-of-bound
+            Bhigh = vget_high_u8(Bvector);
+            Ghigh = vget_high_u8(Gvector);
+            Rhigh = vget_high_u8(Rvector);
+
+            Bhigh16 = vmovl_u8(Bhigh);
+            Ghigh16 = vmovl_u8(Ghigh);
+            Rhigh16 = vmovl_u8(Rhigh);
+
+            // Multiply lower values with kernel values
+            Blow16 = vmulq_n_u16(Blow16, (uint16_t)(kernel[k_radius+1]*64));
+            Glow16 = vmulq_n_u16(Glow16, (uint16_t)(kernel[k_radius+1]*64));
+            Rlow16 = vmulq_n_u16(Rlow16, (uint16_t)(kernel[k_radius+1]*64));
+
+            Blow16 = vshrq_n_u16(Blow16, 6);
+            Glow16 = vshrq_n_u16(Glow16, 6);
+            Rlow16 = vshrq_n_u16(Rlow16, 6);
+
+            Blow = vqmovn_u16(Blow16);
+            Glow = vqmovn_u16(Glow16);
+            Rlow = vqmovn_u16(Rlow16);
+
+            // Multiply higher values with kernel values
+            Bhigh16 = vmulq_n_u16(Bhigh16, (uint16_t)(kernel[k_radius+1]*64));
+            Ghigh16 = vmulq_n_u16(Ghigh16, (uint16_t)(kernel[k_radius+1]*64));
+            Rhigh16 = vmulq_n_u16(Rhigh16, (uint16_t)(kernel[k_radius+1]*64));
+
+            Bhigh16 = vshrq_n_u16(Bhigh16, 6);
+            Ghigh16 = vshrq_n_u16(Ghigh16, 6);
+            Rhigh16 = vshrq_n_u16(Rhigh16, 6);
+
+            Bhigh = vqmovn_u16(Bhigh16);
+            Ghigh = vqmovn_u16(Ghigh16);
+            Rhigh = vqmovn_u16(Rhigh16);
+
+            // Combine lower and higher pixel values
+            Bvector = vcombine_u8(Blow, Bhigh);
+            Gvector = vcombine_u8(Glow, Ghigh);
+            Rvector = vcombine_u8(Rlow, Rhigh);
+
+            neonOutPtr_cur.val[0] = Bvector;
+            neonOutPtr_cur.val[1] = Gvector;
+            neonOutPtr_cur.val[2] = Rvector;
+            neonOutPtr_cur.val[3] = Avector;
+
+            vst4q_u8(arrayOutPtr_cur, neonOutPtr_cur);
+        }
+    }
+}
+
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftneonnative(JNIEnv *env,
@@ -545,18 +646,12 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftneonnative(
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
-    for (int j=0;j<height;j++){
-        for (int i=0;i<width;i++) {
-            int B = pixels[j*width+i]%0x100;
-            int G = (pixels[j*width+i]>>8)%0x100;
-            int R = (pixels[j*width+i]>>16)%0x100;
-            int A = 0xff;
-            R=0;
-            int color = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+    /* Dummy Variables */
+    jfloat sigma_grad = 1.0;
+    jint k_radius = ceil(2*sigma_grad);
+    jfloat *kernel = gaussian1D_kernel(sigma_grad, k_radius);
 
-            outputPixels[j*width+i]=color;
-        }
-    }
+    apply_filterFast_Neon(pixels, kernel, outputPixels, 0, 0, width, height, width, height, k_radius);
 
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);
