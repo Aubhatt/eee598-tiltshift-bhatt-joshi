@@ -532,7 +532,7 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
 }
 
 // ---------------------------------------- ARM Neon -----------------------------------------------
-
+// TODO: Add boundary of k_radius on all sides when calculating superTemp array 
 void apply_filterFast_Neon(const jint *pixels,
                       const jfloat *kernel,
                       jint *outputPixels,
@@ -545,9 +545,17 @@ void apply_filterFast_Neon(const jint *pixels,
                       jint k_radius) {
     uint8_t *arrayInPtr = (uint8_t *)pixels;
     uint8_t *arrayOutPtr = (uint8_t *)outputPixels;
+    uint8_t *arrayTempPtr = new uint8_t[width*height*4];
+    uint8_t *arraySuperTempPtr = new uint8_t[width*height*4];
 
     uint8_t *arrayInPtr_cur;
-    uint8_t *arrayOutPtr_cur;
+    uint8_t *arraySuperTempPtr_cur;
+
+    int k_width = 2*k_radius+1;
+
+    const uint16_t multiplier_scale = 64;
+    const uint16_t multiplier_scaleLog = 6;
+    const jfloat brightness_scale = 1.1;
 
     uint8x16x4_t neonInPtr_cur, neonOutPtr_cur;
     uint8x16_t Bvector, Gvector, Rvector, Avector;
@@ -556,80 +564,172 @@ void apply_filterFast_Neon(const jint *pixels,
     uint8x8_t Bhigh, Ghigh, Rhigh;
     uint16x8_t Bhigh16, Ghigh16, Rhigh16;
 
-    for (int j=y_start;j<y_end;j++){
-        for (int i=x_start;i<x_end;i++) {
+    for(int pass=0;pass<2;pass++) {
+        for(int k_i=0;k_i<k_width; k_i++) {
+            for (int j=y_start;j<y_end;j++){
+                for (int i=x_start;i<x_end;i+=16) {
 
-            arrayInPtr_cur = &(arrayInPtr[j*width*4 + i*4]);
-            arrayOutPtr_cur = &(arrayOutPtr[j*width*4 + i*4]);
+                    if(pass == 0) arrayInPtr_cur = &(arrayInPtr[j*width*4 + i*4]);
+                    else arrayInPtr_cur = &(arrayTempPtr[j*width*4 + i*4]);
 
-            // Get the pixel values in ARM format
-            neonInPtr_cur = vld4q_u8(arrayInPtr_cur);
+                    arraySuperTempPtr_cur = &(arraySuperTempPtr[j*width*4 + i*4]);
 
-            // Separate all color channels
-            Bvector = neonInPtr_cur.val[0];
-            Gvector = neonInPtr_cur.val[1];
-            Rvector = neonInPtr_cur.val[2];
-            Avector = neonInPtr_cur.val[3];
+                    // Get the pixel values in ARM format
+                    neonInPtr_cur = vld4q_u8(arrayInPtr_cur);
 
-            // Get the lower 8 pixels from color channel to prevent mul from going out-of-bound
-            Blow = vget_low_u8(Bvector);
-            Glow = vget_low_u8(Gvector);
-            Rlow = vget_low_u8(Rvector);
+                    // Separate all color channels
+                    Bvector = neonInPtr_cur.val[0];
+                    Gvector = neonInPtr_cur.val[1];
+                    Rvector = neonInPtr_cur.val[2];
+                    Avector = neonInPtr_cur.val[3];
 
-            Blow16 = vmovl_u8(Blow);
-            Glow16 = vmovl_u8(Glow);
-            Rlow16 = vmovl_u8(Rlow);
+                    // Get the lower 8 pixels from color channel to prevent mul from going out-of-bound
+                    Blow = vget_low_u8(Bvector);
+                    Glow = vget_low_u8(Gvector);
+                    Rlow = vget_low_u8(Rvector);
 
-            // Get the higher 8 pixels from color channel to prevent mul from going out-of-bound
-            Bhigh = vget_high_u8(Bvector);
-            Ghigh = vget_high_u8(Gvector);
-            Rhigh = vget_high_u8(Rvector);
+                    Blow16 = vmovl_u8(Blow);
+                    Glow16 = vmovl_u8(Glow);
+                    Rlow16 = vmovl_u8(Rlow);
 
-            Bhigh16 = vmovl_u8(Bhigh);
-            Ghigh16 = vmovl_u8(Ghigh);
-            Rhigh16 = vmovl_u8(Rhigh);
+                    // Get the higher 8 pixels from color channel to prevent mul from going out-of-bound
+                    Bhigh = vget_high_u8(Bvector);
+                    Ghigh = vget_high_u8(Gvector);
+                    Rhigh = vget_high_u8(Rvector);
 
-            // Multiply lower values with kernel values
-            Blow16 = vmulq_n_u16(Blow16, (uint16_t)(kernel[k_radius+1]*64));
-            Glow16 = vmulq_n_u16(Glow16, (uint16_t)(kernel[k_radius+1]*64));
-            Rlow16 = vmulq_n_u16(Rlow16, (uint16_t)(kernel[k_radius+1]*64));
+                    Bhigh16 = vmovl_u8(Bhigh);
+                    Ghigh16 = vmovl_u8(Ghigh);
+                    Rhigh16 = vmovl_u8(Rhigh);
 
-            Blow16 = vshrq_n_u16(Blow16, 6);
-            Glow16 = vshrq_n_u16(Glow16, 6);
-            Rlow16 = vshrq_n_u16(Rlow16, 6);
+                    // Multiply lower values with kernel values
+                    Blow16 = vmulq_n_u16(Blow16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
+                    Glow16 = vmulq_n_u16(Glow16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
+                    Rlow16 = vmulq_n_u16(Rlow16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
 
-            Blow = vqmovn_u16(Blow16);
-            Glow = vqmovn_u16(Glow16);
-            Rlow = vqmovn_u16(Rlow16);
+                    Blow16 = vshrq_n_u16(Blow16, multiplier_scaleLog);
+                    Glow16 = vshrq_n_u16(Glow16, multiplier_scaleLog);
+                    Rlow16 = vshrq_n_u16(Rlow16, multiplier_scaleLog);
 
-            // Multiply higher values with kernel values
-            Bhigh16 = vmulq_n_u16(Bhigh16, (uint16_t)(kernel[k_radius+1]*64));
-            Ghigh16 = vmulq_n_u16(Ghigh16, (uint16_t)(kernel[k_radius+1]*64));
-            Rhigh16 = vmulq_n_u16(Rhigh16, (uint16_t)(kernel[k_radius+1]*64));
+                    Blow = vqmovn_u16(Blow16);
+                    Glow = vqmovn_u16(Glow16);
+                    Rlow = vqmovn_u16(Rlow16);
 
-            Bhigh16 = vshrq_n_u16(Bhigh16, 6);
-            Ghigh16 = vshrq_n_u16(Ghigh16, 6);
-            Rhigh16 = vshrq_n_u16(Rhigh16, 6);
+                    // Multiply higher values with kernel values
+                    Bhigh16 = vmulq_n_u16(Bhigh16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
+                    Ghigh16 = vmulq_n_u16(Ghigh16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
+                    Rhigh16 = vmulq_n_u16(Rhigh16, (uint16_t)(kernel[k_i]*multiplier_scale*brightness_scale));
 
-            Bhigh = vqmovn_u16(Bhigh16);
-            Ghigh = vqmovn_u16(Ghigh16);
-            Rhigh = vqmovn_u16(Rhigh16);
+                    Bhigh16 = vshrq_n_u16(Bhigh16, multiplier_scaleLog);
+                    Ghigh16 = vshrq_n_u16(Ghigh16, multiplier_scaleLog);
+                    Rhigh16 = vshrq_n_u16(Rhigh16, multiplier_scaleLog);
 
-            // Combine lower and higher pixel values
-            Bvector = vcombine_u8(Blow, Bhigh);
-            Gvector = vcombine_u8(Glow, Ghigh);
-            Rvector = vcombine_u8(Rlow, Rhigh);
+                    Bhigh = vqmovn_u16(Bhigh16);
+                    Ghigh = vqmovn_u16(Ghigh16);
+                    Rhigh = vqmovn_u16(Rhigh16);
 
-            neonOutPtr_cur.val[0] = Bvector;
-            neonOutPtr_cur.val[1] = Gvector;
-            neonOutPtr_cur.val[2] = Rvector;
-            neonOutPtr_cur.val[3] = Avector;
+                    // Combine lower and higher pixel values
+                    Bvector = vcombine_u8(Blow, Bhigh);
+                    Gvector = vcombine_u8(Glow, Ghigh);
+                    Rvector = vcombine_u8(Rlow, Rhigh);
 
-            vst4q_u8(arrayOutPtr_cur, neonOutPtr_cur);
+                    neonOutPtr_cur.val[0] = Bvector;
+                    neonOutPtr_cur.val[1] = Gvector;
+                    neonOutPtr_cur.val[2] = Rvector;
+                    neonOutPtr_cur.val[3] = Avector;
+
+                    vst4q_u8(arraySuperTempPtr_cur, neonOutPtr_cur);
+                }
+            }
+
+            for (int j=y_start;j<y_end;j++){
+                for (int i=x_start;i<x_end;i++) {
+                    if(pass == 0) {
+                        if( ( (j-k_radius+k_i) >= y_start ) && ( (j-k_radius+k_i) < y_end ) ) {
+                            arrayTempPtr[(j*width + i)*4] += arraySuperTempPtr[((j-k_radius+k_i)*width + i)*4];
+                            arrayTempPtr[(j*width + i)*4 + 1] += arraySuperTempPtr[((j-k_radius+k_i)*width + i)*4 + 1];
+                            arrayTempPtr[(j*width + i)*4 + 2] += arraySuperTempPtr[((j-k_radius+k_i)*width + i)*4 + 2];
+                            arrayTempPtr[(j*width + i)*4 + 3] = arraySuperTempPtr[((j-k_radius+k_i)*width + i)*4 + 3];
+                        }
+                    }
+                    else {
+                        if( ( (i-k_radius+k_i) >= x_start ) && ( (i-k_radius+k_i) < x_end ) ) {
+                            arrayOutPtr[(j*width + i)*4] += arraySuperTempPtr[(j*width + (i-k_radius+k_i))*4];
+                            arrayOutPtr[(j*width + i)*4 + 1] += arraySuperTempPtr[(j*width + (i-k_radius+k_i))*4 + 1];
+                            arrayOutPtr[(j*width + i)*4 + 2] += arraySuperTempPtr[(j*width + (i-k_radius+k_i))*4 + 2];
+                            arrayOutPtr[(j*width + i)*4 + 3] = arraySuperTempPtr[(j*width + (i-k_radius+k_i))*4 + 3];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    delete[] arraySuperTempPtr;
+    delete[] arrayTempPtr;
+}
+
+void gaussian_filter_Neon(jint *pixels,
+                     jint *outputPixels,
+                     jint x_start,
+                     jint y_start,
+                     jint x_end,
+                     jint y_end,
+                     jint width,
+                     jint height,
+                     jint sigma,
+                     jint k_radius) {
+
+    jfloat *kernel;
+
+    // Only apply if sigma is greater than 0.6
+    if(sigma >= 0.6) {
+        kernel = gaussian1D_kernel(sigma, k_radius);
+        apply_filterFast_Neon(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+
+        delete[] kernel; // Free allocated kernel
+    }
+    else {
+        copy_buffer2D(pixels, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+    }
+
+}
+
+void gaussianGradient_filter_Neon(jint *pixels,
+                             jint *outputPixels,
+                             jint x_start,
+                             jint y_start,
+                             jint x_end,
+                             jint y_end,
+                             jint width,
+                             jint height,
+                             jint sigma,
+                             jint k_radius,
+                             jint climb) { // climb: 1 - no_blur to blur; 0 - blur to no_blur
+
+    jfloat *kernel;
+    jfloat sigma_grad;
+
+    // Apply different kernel for every row in the image to generate a gradient blur
+    for(int j=y_start; j<y_end; j++) {
+
+        // Check if the blur is increasing or decreasing
+        if(climb)
+            sigma_grad = sigma * (jfloat)abs(j - y_start) / (jfloat)abs(y_end - y_start);
+        else
+            sigma_grad = sigma * (jfloat)abs(j - y_end) / (jfloat)abs(y_end - y_start);
+
+        // Only apply if sigma is greater than 0.6
+        if(sigma_grad >= 0.6) {
+            kernel = gaussian1D_kernel(sigma_grad, k_radius);
+            apply_filterFast_Neon(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+
+            delete[] kernel; // Free allocated kernel
+        }
+        else {
+            copy_buffer2D(pixels, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
         }
     }
 }
-
 
 extern "C"
 JNIEXPORT jint JNICALL
@@ -646,12 +746,34 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftneonnative(
     jint *pixels = env->GetIntArrayElements(inputPixels_, NULL);
     jint *outputPixels = env->GetIntArrayElements(outputPixels_, NULL);
 
-    /* Dummy Variables */
-    jfloat sigma_grad = 1.0;
-    jint k_radius = ceil(2*sigma_grad);
-    jfloat *kernel = gaussian1D_kernel(sigma_grad, k_radius);
+//    /* Dummy Variables */
+//    jfloat sigma_grad = 3.0;
+//    jint k_radius = ceil(2*sigma_grad);
+//    jfloat *kernel = gaussian1D_kernel(sigma_grad, k_radius);
+//
+//    apply_filterFast_Neon(pixels, kernel, outputPixels, 0, 0, width, height, width, height, k_radius);
+//
+//    delete[] kernel;
 
-    apply_filterFast_Neon(pixels, kernel, outputPixels, 0, 0, width, height, width, height, k_radius);
+    // Selecting kernel radius as per the sigma values
+    jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
+
+    gaussian_filter_Neon( pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
+    gaussianGradient_filter_Neon( pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
+
+    // Create threads for each strip
+//    std::thread strip0 (gaussian_filter_Neon, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
+//    std::thread strip1 (gaussianGradient_filter_Neon, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
+//    std::thread strip2 (gaussian_filter_Neon, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius);
+//    std::thread strip3 (gaussianGradient_filter_Neon, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1);
+//    std::thread strip4 (gaussian_filter_Neon, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius);
+//
+//    // Wait for the threads to finish
+//    strip0.join();
+//    strip1.join();
+//    strip2.join();
+//    strip3.join();
+//    strip4.join();
 
     env->ReleaseIntArrayElements(inputPixels_, pixels, 0);
     env->ReleaseIntArrayElements(outputPixels_, outputPixels, 0);
