@@ -16,6 +16,60 @@ public class SpeedyTiltShift {
         System.loadLibrary("native-lib");
     }
 
+    private static double[] gaussian_kernel(float sigma, int k_radius) {
+        int k_height = 2*k_radius + 1;
+        int k_width = 2*k_radius + 1;
+
+        int x, y;
+        double r, s = (2.0 * sigma * sigma);
+
+        double sum= 0.0;
+
+        // Filling kernel elements
+        double[] kernel = new double[k_height*k_width];
+        for(int j=0; j<k_height; j++) {
+            for(int i=0; i<k_width; i++) {
+                x = i-k_radius;
+                y = j-k_radius;
+                r = Math.sqrt(x*x + y*y);
+                kernel[j*k_width + i] = ((Math.exp(-(r*r) / s)) / (Math.PI * s));
+                sum += kernel[j*k_width + i];
+            }
+        }
+
+        // Normalize weights (so that the sums add to 1)
+        for(int j=0; j<k_height; j++) {
+            for(int i=0; i<k_width; i++) {
+                kernel[j*k_width + i] /= sum;
+            }
+        }
+
+        return kernel;
+    }
+
+    private static void copy_buffer2D(final int[] pixels,
+                       int[] pixelsOut,
+                       int x_start,
+                       int y_start,
+                       int x_end,
+                       int y_end,
+                       int width,
+                       int height,
+                       int k_radius) {
+        x_start = Integer.max(x_start, 0);
+        y_start = Integer.max(y_start, 0);
+
+        x_end = Integer.max(x_end, width);
+        y_end = Integer.max(y_end, height);
+
+        // Convolution of image with kernel a.k.a. applying filter
+        for (int j=y_start; j<y_end; j++){
+            for (int i=x_start; i<x_end; i++) {
+                pixelsOut[j*width+i] = pixels[j*width + i];
+            }
+        }
+    }
+
     private static void apply_filter(final int[] pixels,
                                      final double[] kernel,
                                      int[] pixelsOut,
@@ -85,21 +139,61 @@ public class SpeedyTiltShift {
                                    float sigma,
                                    int k_radius,
                                    int fast) {
-        int k_width = (2*k_radius+1);
-        int k_height = (2*k_radius+1);
-        double[] kernel = new double[k_width*k_height];
-        Arrays.fill(kernel, 1.00/(k_width*k_height));
+        double[] kernel;
 
-        apply_filter(pixels,
-                kernel,
-                pixelsOut,
-                x_start,
-                y_start,
-                x_end,
-                y_end,
-                width,
-                height,
-                k_radius);
+        // Only apply if sigma is greater than 0.6
+        if(sigma >= 0.6) {
+            if(fast == 1) {
+                kernel = gaussian_kernel(sigma, k_radius);
+                apply_filter(pixels, kernel, pixelsOut, x_start, y_start, x_end, y_end, width, height, k_radius);
+            }
+            else {
+                kernel = gaussian_kernel(sigma, k_radius);
+                apply_filter(pixels, kernel, pixelsOut, x_start, y_start, x_end, y_end, width, height, k_radius);
+            }
+        }
+        else {
+            copy_buffer2D(pixels, pixelsOut, x_start, y_start, x_end, y_end, width, height, k_radius);
+        }
+    }
+
+    private static void gaussianGradient_filter(int[] pixels,
+                                        int[] pixelsOut,
+                                        int x_start,
+                                        int y_start,
+                                        int x_end,
+                                        int y_end,
+                                        int width,
+                                        int height,
+                                        float sigma,
+                                        int k_radius,
+                                        int climb,
+                                        int fast) {
+        double[] kernel;
+        float sigma_grad;
+
+        for(int j=y_start; j<y_end; j++) {
+            if(climb == 1)
+                sigma_grad = (float)((double)sigma * (float)Math.abs(j-y_start) / (float)Math.abs(y_end - y_start));
+            else
+                sigma_grad = (float)((double)sigma * (float)Math.abs(j-y_end) / (float)Math.abs(y_end - y_start));
+
+            // Only apply if sigma is greater than 0.6
+            if(sigma_grad >= 0.6) {
+                if(fast == 1) {
+                    kernel = gaussian_kernel(sigma_grad, k_radius);
+                    apply_filter(pixels, kernel, pixelsOut, x_start, j, x_end, j+1, width, height, k_radius);
+                }
+                else {
+                    kernel = gaussian_kernel(sigma_grad, k_radius);
+                    apply_filter(pixels, kernel, pixelsOut, x_start, j, x_end, j+1, width, height, k_radius);
+                }
+            }
+            else {
+                copy_buffer2D(pixels, pixelsOut, x_start, j, x_end, j+1, width, height, k_radius);
+            }
+        }
+
     }
 
     public static Bitmap tiltshift_java(Bitmap input, float sigma_far, float sigma_near, int a0, int a1, int a2, int a3){
@@ -111,22 +205,70 @@ public class SpeedyTiltShift {
         int[] pixelsOut = new int[input.getHeight()*input.getWidth()];
         input.getPixels(pixels,0,input.getWidth(),0,0,input.getWidth(),input.getHeight());
 
-        // Fixing parameters
-        sigma_far = 1;
-        sigma_near = sigma_far;
-
         // Selecting kernel radius as per the sigma values
         int k_radius = (int) ceil(2*max(sigma_far, sigma_near));
+
+        Log.d("SPEEDY_TS", String.valueOf(sigma_far));
 
         gaussian_filter(pixels,
                 pixelsOut,
                 0,
                 0,
                 input.getWidth(),
-                input.getHeight(),
+                a0,
                 input.getWidth(),
                 input.getHeight(),
                 sigma_far,
+                k_radius,
+                0);
+
+        gaussianGradient_filter(pixels,
+                pixelsOut,
+                0,
+                a0,
+                input.getWidth(),
+                a1,
+                input.getWidth(),
+                input.getHeight(),
+                sigma_far,
+                k_radius,
+                0,
+                0);
+
+        gaussian_filter(pixels,
+                pixelsOut,
+                0,
+                a1,
+                input.getWidth(),
+                a2,
+                input.getWidth(),
+                input.getHeight(),
+                0,
+                k_radius,
+                0);
+
+        gaussianGradient_filter(pixels,
+                pixelsOut,
+                0,
+                a2,
+                input.getWidth(),
+                a3,
+                input.getWidth(),
+                input.getHeight(),
+                sigma_near,
+                k_radius,
+                1,
+                0);
+
+        gaussian_filter(pixels,
+                pixelsOut,
+                0,
+                a3,
+                input.getWidth(),
+                input.getHeight(),
+                input.getWidth(),
+                input.getHeight(),
+                sigma_near,
                 k_radius,
                 0);
 
