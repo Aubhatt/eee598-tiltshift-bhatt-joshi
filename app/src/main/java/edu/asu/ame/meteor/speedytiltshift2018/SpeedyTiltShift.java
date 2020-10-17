@@ -29,13 +29,13 @@ public class SpeedyTiltShift {
         int k_radius = (int) ceil(2*max(sigma_far, sigma_near));
         int fast = 1;
 
-        sigma_far = 5.0f;
+//        sigma_far = 5.0f;
 //        sigma_near = 5.0f;
 
-        a0 = input.getHeight()/5;
-        a1 = (input.getHeight()/5)*2;
-        a1 = (input.getHeight()/5)*3;
-        a1 = (input.getHeight()/5)*4;
+//        a0 = input.getHeight()/5;
+//        a1 = (input.getHeight()/5)*2;
+//        a1 = (input.getHeight()/5)*3;
+//        a1 = (input.getHeight()/5)*4;
 
         // Log.d("SPEEDY_TS", String.valueOf(a0) + ", " + String.valueOf(a1) + ", " + String.valueOf(a2) + ", " + String.valueOf(a3));
 

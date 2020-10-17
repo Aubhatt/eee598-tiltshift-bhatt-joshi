@@ -515,8 +515,8 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
     std::thread strip0 (gaussian_filter, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius, fast);
     std::thread strip1 (gaussianGradient_filter, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0, fast);
     std::thread strip2 (gaussian_filter, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius, fast);
-    std::thread strip3 (gaussianGradient_filter, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1, fast);
-    std::thread strip4 (gaussian_filter, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius, fast);
+    std::thread strip3 (gaussianGradient_filter, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_near, k_radius, 1, fast);
+    std::thread strip4 (gaussian_filter, pixels, outputPixels, 0, a3, width, height, width, height, sigma_near, k_radius, fast);
 
     // Wait for the threads to finish
     strip0.join();
@@ -921,8 +921,8 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftneonnative(
     std::thread strip0 (gaussian_filter_Neon, pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
     std::thread strip1 (gaussianGradient_filter_Neon, pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
     std::thread strip2 (gaussian_filter_Neon, pixels, outputPixels, 0, a1, width, a2, width, height, 0, k_radius);
-    std::thread strip3 (gaussianGradient_filter_Neon, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_far, k_radius, 1);
-    std::thread strip4 (gaussian_filter_Neon, pixels, outputPixels, 0, a3, width, height, width, height, sigma_far, k_radius);
+    std::thread strip3 (gaussianGradient_filter_Neon, pixels, outputPixels, 0, a2, width, a3, width, height, sigma_near, k_radius, 1);
+    std::thread strip4 (gaussian_filter_Neon, pixels, outputPixels, 0, a3, width, height, width, height, sigma_near, k_radius);
 
     // Wait for the threads to finish
     strip0.join();
