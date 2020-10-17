@@ -238,6 +238,7 @@ public class SpeedyTiltShift {
                     }
                 }
 
+
                 _B = (int) B;
                 _G = (int) G;
                 _R = (int) R;
@@ -325,10 +326,22 @@ public class SpeedyTiltShift {
         input.getPixels(pixels,0,input.getWidth(),0,0,input.getWidth(),input.getHeight());
 
         // Selecting kernel radius as per the sigma values
+
+        sigma_far = 3.0f;
+        sigma_near = 3.0f;
+
         int k_radius = (int) ceil(2*max(sigma_far, sigma_near));
 
-        Log.d("SPEEDY_TS", String.valueOf(sigma_far));
 
+        a0 = input.getHeight()/5;
+        a1 = (input.getHeight()/5)*2;
+        a2 = (input.getHeight()/5)*3;
+        a3 = (input.getHeight()/5)*4;
+
+
+
+
+        long start = System.currentTimeMillis();
         gaussian_filter(pixels,
                 pixelsOut,
                 0,
@@ -392,7 +405,7 @@ public class SpeedyTiltShift {
                 1);
 
         outBmp.setPixels(pixelsOut,0,input.getWidth(),0,0,input.getWidth(),input.getHeight());
-
+        long elapsed = System.currentTimeMillis() - start;
         return outBmp;
     }
     public static Bitmap tiltshift_cpp(Bitmap input, float sigma_far, float sigma_near, int a0, int a1, int a2, int a3){
