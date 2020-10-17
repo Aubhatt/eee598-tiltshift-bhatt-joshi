@@ -533,7 +533,158 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftcppnative(J
 
 // ---------------------------------------- ARM Neon -----------------------------------------------
 // TODO: Add boundary of k_radius on all sides when calculating superTemp array 
+
 void apply_filterFast_Neon(const jint *pixels,
+                           const jfloat *kernel,
+                           jint *outputPixels,
+                           jint x_start,
+                           jint y_start,
+                           jint x_end,
+                           jint y_end,
+                           jint width,
+                           jint height,
+                           jint k_radius) {
+    uint8_t *arrayInPtr = (uint8_t *)pixels;
+    uint8_t *arrayOutPtr = (uint8_t *)outputPixels;
+    uint8_t *arrayTempPtr = new uint8_t[width*height*4]();
+
+    uint8_t *arrayInPtr_cur;
+
+    int k_width = 2*k_radius+2;
+
+    const uint16_t multiplier_scale = 64;
+    const uint16_t multiplier_scaleLog = 6;
+
+    // Neon containers for image
+    uint8x16x4_t neonInPtr_cur;
+    uint8x16_t Bvector, Gvector, Rvector, Avector;
+    uint8x8_t Blow0, Glow0, Rlow0, Blow1, Glow1, Rlow1;
+    uint8x8_t Bhigh0, Ghigh0, Rhigh0, Bhigh1, Ghigh1, Rhigh1;
+    uint16x8_t Blow0_16, Glow0_16, Rlow0_16, Blow1_16, Glow1_16, Rlow1_16;
+    uint16x8_t Bhigh0_16, Ghigh0_16, Rhigh0_16, Bhigh1_16, Ghigh1_16, Rhigh1_16;
+
+    // Prepare kernel for Neon
+    uint8_t *kernelN = new uint8_t[k_width]();
+    kernelN[k_width-1] = 0;
+    for(int i=1; i<k_width; i++) {
+        kernelN[i] = (uint8_t) ((float)kernel[i] * multiplier_scale);
+    }
+
+    // Fill kernel in a Neon compatible type
+    uint8x8_t neonKernel0 = vld1_u8(kernelN);
+    uint8x8_t neonKernel1 = vld1_u8(&(kernelN[8]));
+    uint8x8_t neonKernel2 = vld1_u8(&(kernelN[16]));
+    uint8x8_t neonKernel3 = vld1_u8(&(kernelN[32]));
+
+    // Mov it to a big house to facilitate multiplication
+    uint16x8_t neonKernel0_16 = vmovl_u8(neonKernel0);
+    uint16x8_t neonKernel1_16 = vmovl_u8(neonKernel1);
+    uint16x8_t neonKernel2_16 = vmovl_u8(neonKernel2);
+    uint16x8_t neonKernel3_16 = vmovl_u8(neonKernel3);
+
+    // Neon container for product of pixel-kernel
+    uint16x8_t BK, GK, RK;
+
+    uint16_t B16, R16, G16;
+    uint8_t B, R, G, A;
+
+    // Finally getting down to convolution
+
+    //First Pass
+    for(int j=0; j<height; j++) {
+        for(int i=0; i<width; i++) {
+            if( (i-k_radius < 0) || (i+k_radius+1 >= width) ) { // Use normal C++: If kernel going out of bound
+                //LOGD("Something!!!");
+            }
+            else { // Use Neon intrinsics: If kernel is completely within bounds
+                //LOGD("Okay");
+                arrayInPtr_cur = &(arrayInPtr[(j*width + i)*4]);
+
+                // First 16 pixels
+                neonInPtr_cur = vld4q_u8(arrayInPtr_cur-k_radius);
+                Bvector = neonInPtr_cur.val[0];
+                Gvector = neonInPtr_cur.val[1];
+                Rvector = neonInPtr_cur.val[2];
+                Avector = neonInPtr_cur.val[3];
+
+                Blow0 = vget_low_u8(Bvector);
+                Glow0 = vget_low_u8(Gvector);
+                Rlow0 = vget_low_u8(Rvector);
+
+                Bhigh0 = vget_high_u8(Bvector);
+                Ghigh0 = vget_high_u8(Gvector);
+                Rhigh0 = vget_high_u8(Rvector);
+
+                Blow0_16 = vmovl_u8(Blow0);
+                Glow0_16 = vmovl_u8(Glow0);
+                Rlow0_16 = vmovl_u8(Rlow0);
+
+                Bhigh0_16 = vmovl_u8(Bhigh0);
+                Ghigh0_16 = vmovl_u8(Ghigh0);
+                Rhigh0_16 = vmovl_u8(Rhigh0);
+
+                // Last 16 pixels
+                neonInPtr_cur = vld4q_u8(arrayInPtr_cur+1);
+                Bvector = neonInPtr_cur.val[0];
+                Gvector = neonInPtr_cur.val[1];
+                Rvector = neonInPtr_cur.val[2];
+                Avector = neonInPtr_cur.val[3];
+
+                Blow1 = vget_low_u8(Bvector);
+                Glow1 = vget_low_u8(Gvector);
+                Rlow1 = vget_low_u8(Rvector);
+
+                Bhigh1 = vget_high_u8(Bvector);
+                Ghigh1 = vget_high_u8(Gvector);
+                Rhigh1 = vget_high_u8(Rvector);
+
+                Blow1_16 = vmovl_u8(Blow1);
+                Glow1_16 = vmovl_u8(Glow1);
+                Rlow1_16 = vmovl_u8(Rlow1);
+
+                Bhigh1_16 = vmovl_u8(Bhigh1);
+                Ghigh1_16 = vmovl_u8(Ghigh1);
+                Rhigh1_16 = vmovl_u8(Rhigh1);
+
+                // Multiply-Acc with kernel values
+                BK = vmulq_u16(Blow0_16, neonKernel0_16);
+                BK = vmlaq_u16(BK, Bhigh0_16, neonKernel1_16);
+                BK = vmlaq_u16(BK, Blow1_16, neonKernel2_16);
+                BK = vmlaq_u16(BK, Bhigh1_16, neonKernel3_16);
+
+                GK = vmulq_u16(Glow0_16, neonKernel0_16);
+                GK = vmlaq_u16(GK, Ghigh0_16, neonKernel1_16);
+                GK = vmlaq_u16(GK, Glow1_16, neonKernel2_16);
+                GK = vmlaq_u16(GK, Ghigh1_16, neonKernel3_16);
+
+                RK = vmulq_u16(Rlow0_16, neonKernel0_16);
+                RK = vmlaq_u16(RK, Rhigh0_16, neonKernel1_16);
+                RK = vmlaq_u16(RK, Rlow1_16, neonKernel2_16);
+                RK = vmlaq_u16(RK, Rhigh1_16, neonKernel3_16);
+
+                // Shift to correct multiplier_scale
+                BK = vshrq_n_u16(BK, multiplier_scaleLog);
+                GK = vshrq_n_u16(GK, multiplier_scaleLog);
+                RK = vshrq_n_u16(RK, multiplier_scaleLog);
+
+                // Acc to a single 16-bit value
+                B16 = vaddvq_u16(BK);
+                G16 = vaddvq_u16(GK);
+                R16 = vaddvq_u16(RK);
+
+                // Move them back to 8bit values
+                B = B16 & 0xFF;
+                G = G16 & 0xFF;
+                R = R16 & 0xFF;
+                A = 0xFF;
+
+                outputPixels[j*width + i] = A<<24 | R<<16 | G<<8 | B;
+            }
+        }
+    }
+}
+
+void apply_filter_Neon(const jint *pixels,
                       const jfloat *kernel,
                       jint *outputPixels,
                       jint x_start,
@@ -689,7 +840,7 @@ void gaussian_filter_Neon(jint *pixels,
     // Only apply if sigma is greater than 0.6
     if(sigma >= 0.6) {
         kernel = gaussian1D_kernel(sigma, k_radius);
-        apply_filterFast_Neon(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
+        apply_filter_Neon(pixels, kernel, outputPixels, x_start, y_start, x_end, y_end, width, height, k_radius);
 
         delete[] kernel; // Free allocated kernel
     }
@@ -726,7 +877,7 @@ void gaussianGradient_filter_Neon(jint *pixels,
         // Only apply if sigma is greater than 0.6
         if(sigma_grad >= 0.6) {
             kernel = gaussian1D_kernel(sigma_grad, k_radius);
-            apply_filterFast_Neon(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
+            apply_filter_Neon(pixels, kernel, outputPixels, x_start, j, x_end, j+1, width, height, k_radius);
 
             delete[] kernel; // Free allocated kernel
         }
@@ -761,7 +912,7 @@ Java_edu_asu_ame_meteor_speedytiltshift2018_SpeedyTiltShift_tiltshiftneonnative(
 //    delete[] kernel;
 
     // Selecting kernel radius as per the sigma values
-    jint k_radius = ceil(2*fmax(sigma_far, sigma_near));
+    jint k_radius = 15;//ceil(2*fmax(sigma_far, sigma_near));
 
 //    gaussian_filter_Neon( pixels, outputPixels, 0,0, width, a0, width, height, sigma_far, k_radius);
 //    gaussianGradient_filter_Neon( pixels, outputPixels, 0, a0, width, a1, width, height, sigma_far, k_radius, 0);
