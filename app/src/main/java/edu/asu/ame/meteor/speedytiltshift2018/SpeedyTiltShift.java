@@ -327,19 +327,17 @@ public class SpeedyTiltShift {
 
         // Selecting kernel radius as per the sigma values
 
-        sigma_far = 3.0f;
-        sigma_near = 3.0f;
-
+        sigma_far = 5.0f;
+        sigma_near = 5.0f;
+        int fast = 1;
         int k_radius = (int) ceil(2*max(sigma_far, sigma_near));
 
-
+        // Log.d("SPEEDY_TS", String.valueOf(sigma_far)+" "+String.valueOf(sigma_near));
+        
         a0 = input.getHeight()/5;
         a1 = (input.getHeight()/5)*2;
         a2 = (input.getHeight()/5)*3;
         a3 = (input.getHeight()/5)*4;
-
-
-
 
         long start = System.currentTimeMillis();
         gaussian_filter(pixels,
@@ -352,7 +350,7 @@ public class SpeedyTiltShift {
                 input.getHeight(),
                 sigma_far,
                 k_radius,
-                1);
+                fast);
 
         gaussianGradient_filter(pixels,
                 pixelsOut,
@@ -365,7 +363,7 @@ public class SpeedyTiltShift {
                 sigma_far,
                 k_radius,
                 0,
-                1);
+                fast);
 
         gaussian_filter(pixels,
                 pixelsOut,
@@ -377,7 +375,7 @@ public class SpeedyTiltShift {
                 input.getHeight(),
                 0,
                 k_radius,
-                1);
+                fast);
 
         gaussianGradient_filter(pixels,
                 pixelsOut,
@@ -390,7 +388,7 @@ public class SpeedyTiltShift {
                 sigma_near,
                 k_radius,
                 1,
-                1);
+                fast);
 
         gaussian_filter(pixels,
                 pixelsOut,
@@ -402,7 +400,7 @@ public class SpeedyTiltShift {
                 input.getHeight(),
                 sigma_near,
                 k_radius,
-                1);
+                fast);
 
         outBmp.setPixels(pixelsOut,0,input.getWidth(),0,0,input.getWidth(),input.getHeight());
         long elapsed = System.currentTimeMillis() - start;
