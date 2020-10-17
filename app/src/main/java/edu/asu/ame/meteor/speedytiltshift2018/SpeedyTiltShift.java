@@ -27,8 +27,17 @@ public class SpeedyTiltShift {
 
         // Selecting kernel radius as per the sigma values
         int k_radius = (int) ceil(2*max(sigma_far, sigma_near));
+        int fast = 1;
 
-        Log.d("SPEEDY_TS", String.valueOf(a0) + ", " + String.valueOf(a1) + ", " + String.valueOf(a2) + ", " + String.valueOf(a3));
+        sigma_far = 5.0f;
+//        sigma_near = 5.0f;
+
+        a0 = input.getHeight()/5;
+        a1 = (input.getHeight()/5)*2;
+        a1 = (input.getHeight()/5)*3;
+        a1 = (input.getHeight()/5)*4;
+
+        // Log.d("SPEEDY_TS", String.valueOf(a0) + ", " + String.valueOf(a1) + ", " + String.valueOf(a2) + ", " + String.valueOf(a3));
 
         SpeedyTiltShiftJava strip0 = new SpeedyTiltShiftJava(pixels,
                 pixelsOut,
@@ -41,7 +50,7 @@ public class SpeedyTiltShift {
                 sigma_far,
                 k_radius,
                 2,
-                0);
+                fast);
 
         SpeedyTiltShiftJava strip1 = new SpeedyTiltShiftJava(pixels,
                 pixelsOut,
@@ -54,7 +63,7 @@ public class SpeedyTiltShift {
                 sigma_far,
                 k_radius,
                 0,
-                0);
+                fast);
 
         SpeedyTiltShiftJava strip2 = new SpeedyTiltShiftJava(pixels,
                 pixelsOut,
@@ -67,7 +76,7 @@ public class SpeedyTiltShift {
                 0,
                 k_radius,
                 2,
-                0);
+                fast);
 
         SpeedyTiltShiftJava strip3 = new SpeedyTiltShiftJava(pixels,
                 pixelsOut,
@@ -80,7 +89,7 @@ public class SpeedyTiltShift {
                 sigma_near,
                 k_radius,
                 1,
-                0);
+                fast);
 
         SpeedyTiltShiftJava strip4 = new SpeedyTiltShiftJava(pixels,
                 pixelsOut,
@@ -93,13 +102,13 @@ public class SpeedyTiltShift {
                 sigma_near,
                 k_radius,
                 2,
-                0);
+                fast);
 
-        strip0.printInfo(0);
-        strip1.printInfo(1);
-        strip2.printInfo(2);
-        strip3.printInfo(3);
-        strip4.printInfo(4);
+//        strip0.printInfo(0);
+//        strip1.printInfo(1);
+//        strip2.printInfo(2);
+//        strip3.printInfo(3);
+//        strip4.printInfo(4);
 
         strip0.start();
         strip1.start();

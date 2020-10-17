@@ -16,6 +16,29 @@ public class SpeedyTiltShiftJava extends Thread{
     private int climb;
     private int fast;
 
+    private static double[] gaussian1D_kernel(float sigma, int k_radius) {
+        int k_width = 2*k_radius + 1;
+        double r, s = (2.0 * sigma * sigma);
+        double sum= 0.0;
+        double x;
+
+        // Filling kernel elements
+        double[] kernel = new double[k_width];
+
+        for(int i=0; i<k_width; i++) {
+            x = i-k_radius;
+            kernel[i] = ((Math.exp(-(x*x) / s)) / (Math.PI * s));
+            sum += kernel[i];
+        }
+
+        // Normalize weights (so that the sums add to 1)
+        for(int i=0; i<k_width; i++) {
+            kernel[i] /= sum;
+        }
+
+        return kernel;
+    }
+
     private static double[] gaussian_kernel(float sigma, int k_radius) {
         int k_height = 2*k_radius + 1;
         int k_width = 2*k_radius + 1;
@@ -68,6 +91,101 @@ public class SpeedyTiltShiftJava extends Thread{
                 pixelsOut[j*width+i] = pixels[j*width + i];
             }
         }
+    }
+
+    private static void apply_filterFast(final int[] pixels,
+                                         final double[] kernel,
+                                         int[] pixelsOut,
+                                         int x_start,
+                                         int y_start,
+                                         int x_end,
+                                         int y_end,
+                                         int width,
+                                         int height,
+                                         int k_radius) {
+        double B, G, R;
+        int x, y;
+        int b, g, r;
+        int _B, _G, _R, _A;
+        int color;
+
+        int [] tempPixels = new int[width*height];
+        int k_width = 2*k_radius + 1;
+
+        x_start = Integer.max(x_start, 0);
+        y_start = Integer.max(y_start, 0);
+
+        x_end = Integer.min(x_end, width);
+        y_end = Integer.min(y_end, height);
+
+        // First pass
+        for (int j=y_start; j<y_end; j++){
+            for (int i=x_start; i<x_end; i++) {
+                B = 0; G = 0; R = 0; _A = 0xff;
+
+                //Applying kernel vertically to pixel
+                for(int k_y=0; k_y<k_width; k_y++) {
+                    y = k_y + j - k_radius;
+                    x = i;
+
+                    if( (y >= 0) && (y < height) ) {
+                        b = pixels[y * width + x] & 0xFF; //% 0x100;
+                        g = (pixels[y * width + x] >> 8) & 0xFF;
+                        r = (pixels[y * width + x] >> 16) & 0xFF;
+
+                        // Notice that B, G and R are float and not int
+                        // to avoid accumulating rounding error
+                        B += (b * kernel[k_y]);
+                        G += (g * kernel[k_y]);
+                        R += (r * kernel[k_y]);
+                    }
+                }
+
+                // Now we convert the accumulated float values to int values
+                _B = (int) B;
+                _G = (int) G;
+                _R = (int) R;
+                color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+
+                tempPixels[j*width+i]=color;
+            }
+        }
+
+        for (int j=y_start; j<y_end; j++){
+            for (int i=x_start; i<x_end; i++) {
+                B = 0; G = 0; R = 0; _A = 0xff;
+
+                //Applying kernel horizontally to pixel
+                for(int k_x=0; k_x<k_width; k_x++) {
+                    x = k_x + i - k_radius;
+                    y = j;
+
+                    if( (x >= 0) && (x < width) ) {
+                        b = tempPixels[y * width + x] & 0xFF; //% 0x100;
+                        g = (tempPixels[y * width + x] >> 8) & 0xFF;
+                        r = (tempPixels[y * width + x] >> 16) & 0xFF;
+
+
+
+                        // Notice that B, G and R are float and not int
+                        // to avoid accumulating rounding error
+                        B += (b * kernel[k_x]);
+                        G += (g * kernel[k_x]);
+                        R += (r * kernel[k_x]);
+                    }
+                }
+
+                // Now we convert the accumulated float values to int values
+                _B = (int) B;
+                _G = (int) G;
+                _R = (int) R;
+                color = (_A & 0xff) << 24 | (_R & 0xff) << 16 | (_G & 0xff) << 8 | (_B & 0xff);
+
+                pixelsOut[j*width+i]=color;
+            }
+        }
+
+
     }
 
     private static void apply_filter(final int[] pixels,
@@ -144,8 +262,8 @@ public class SpeedyTiltShiftJava extends Thread{
         // Only apply if sigma is greater than 0.6
         if(sigma >= 0.6) {
             if(fast == 1) {
-                kernel = gaussian_kernel(sigma, k_radius);
-                apply_filter(pixels, kernel, pixelsOut, x_start, y_start, x_end, y_end, width, height, k_radius);
+                kernel = gaussian1D_kernel(sigma, k_radius);
+                apply_filterFast(pixels, kernel, pixelsOut, x_start, y_start, x_end, y_end, width, height, k_radius);
             }
             else {
                 kernel = gaussian_kernel(sigma, k_radius);
@@ -181,8 +299,8 @@ public class SpeedyTiltShiftJava extends Thread{
             // Only apply if sigma is greater than 0.6
             if(sigma_grad >= 0.6) {
                 if(fast == 1) {
-                    kernel = gaussian_kernel(sigma_grad, k_radius);
-                    apply_filter(pixels, kernel, pixelsOut, x_start, j, x_end, j+1, width, height, k_radius);
+                    kernel = gaussian1D_kernel(sigma_grad, k_radius);
+                    apply_filterFast(pixels, kernel, pixelsOut, x_start, j, x_end, j+1, width, height, k_radius);
                 }
                 else {
                     kernel = gaussian_kernel(sigma_grad, k_radius);
